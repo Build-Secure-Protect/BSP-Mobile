@@ -60,12 +60,14 @@ repositories {
     mavenCentral()
     // the LuckPerms API (Region Guard's dependency, dev runs only)
     maven { url = 'https://oss.sonatype.org/content/repositories/snapshots' }
-    // Valkyrien Skies 2, the released Forge jar (the same file players and servers install).
+    // Modrinth's maven: Canary for the dev runs.
     maven {
         name = 'Modrinth'
         url = 'https://api.modrinth.com/maven'
         content { includeGroup 'maven.modrinth' }
     }
+    // The BSP build of Valkyrien Skies has no published artifact: its built jar is picked up from the sibling repo.
+    flatDir { dirs vs2_libs }
     // The open parts of the Valkyrien Skies core (api, util), for compiling; at runtime they sit inside the VS2 jar.
     maven {
         name = 'Valkyrien Skies'
@@ -87,14 +89,17 @@ repositories {
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
-    // Valkyrien Skies 2: required. Only compat/ValkyrienSkiesBridge touches it.
-    implementation fg.deobf("maven.modrinth:valkyrien-skies:${vs2_version}")
+    // Valkyrien Skies 2 (the BSP build from ../BSP-Valkyrien Skies): required. Only compat/ValkyrienSkiesBridge touches it.
+    implementation fg.deobf("blank:valkyrienskies-120:${vs2_version}")
     compileOnly "org.valkyrienskies.core:api:${vs_core_version}"
     compileOnly "org.valkyrienskies.core:util:${vs_core_version}"
     compileOnly "org.joml:joml-primitives:${joml_primitives_version}"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_stdlib_version}"
     // Kotlin for Forge, which Valkyrien Skies needs at runtime (the pack carries the same version).
     runtimeOnly "thedarkcolour:kotlinforforge:${kotlinforforge_version}"
+    // Canary, dev runs only (the pack carries it): the GameTests run with its point-of-interest optimisations on, beside
+    // the BSP build of Valkyrien Skies that carries the fix for that pairing. Not a dependency of the mod.
+    runtimeOnly fg.deobf("maven.modrinth:canary:${canary_version}")
 
     // BSP-Core, required at runtime (mods.toml): only compat/BspCore touches it, with guards for an older BSP-Core.
     compileOnly fg.deobf("blank:bsp-core:${bsp_core_version}")

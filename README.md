@@ -24,10 +24,10 @@ The mod is in development and has not yet been tried on a live server.
 ## Requirements
 
 - Minecraft 1.20.1 with Forge 47.4.10 or newer (the network runs 47.4.23).
-- Valkyrien Skies 2.4.11 or newer for 1.20.1 Forge, and Kotlin for Forge 4.x, on every client and server.
+- The BSP build of Valkyrien Skies (2.4.11.1 or newer, from the BSP-Valkyrien-Skies repository) for 1.20.1 Forge, and Kotlin for Forge 4.x, on every client and server. Upstream 2.4.11 runs too, but stops on world load beside Canary's point-of-interest optimisations; the BSP build carries the fix.
 - BSP-Core 1.4.5 or newer (the Shatter Coins that buy the tiers, the metals in the recipes, totems, teams and the admin list).
 - Optional: BSP Region Guard 0.5.0 or newer (the `mobile-constructs` flag per region).
 
 ## Building
 
-`./gradlew build` writes `build/libs/bsp-mobile-<version>.jar`. Valkyrien Skies is fetched from Modrinth's maven; BSP-Core and BSP Region Guard are read from the sibling repositories' `build/libs` (build them first); the LuckPerms api jar is fetched for Region Guard's sake in dev runs only. `./gradlew runGameTestServer` runs the headless tests.
+`./gradlew build` writes `build/libs/bsp-mobile-<version>.jar`. Valkyrien Skies is the BSP build read from the sibling repository `../BSP-Valkyrien Skies` (`forge/build/libs`; build it first with JDK 17), and BSP-Core and BSP Region Guard are read from their sibling repositories' `build/libs` (build them first); the LuckPerms api jar is fetched for Region Guard's sake, and Canary for the tests' sake, in dev runs only. `./gradlew runGameTestServer` runs the headless tests.
