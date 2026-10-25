@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "M M",
+    "EBE",
+    "M M"
+  ],
+  "key": {
+    "M": {
+      "item": "bsp_core:magnatite_ingot"
+    },
+    "E": {
+      "item": "bsp_mobile:mobile_engine"
+    },
+    "B": {
+      "item": "minecraft:blaze_rod"
+    }
+  },
+  "result": {
+    "item": "bsp_mobile:mobile_jet_engine",
+    "count": 1
+  }
+}

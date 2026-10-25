@@ -27,10 +27,23 @@ RECIPES_SHAPED = {
     "mobile_core_gyroscope": (["BMB", "MGM", "BMB"], {"B": "minecraft:iron_bars", "M": MAGNATITE, "G": "minecraft:gold_ingot"}),
     # the Mobile Core Lock (D27): 4 Tetrium Ingots at the edges, 4 Iron Ingots at the corners, a Magnatite Ingot in the middle
     "mobile_core_lock": (["ITI", "TMT", "ITI"], {"I": "minecraft:iron_ingot", "T": TETRIUM, "M": MAGNATITE}),
+    # the Mobile Helm (D43): Iron Ingots round a Compass, a Tetrium Ingot on top
+    "mobile_helm": (["ITI", "ICI", "III"], {"I": "minecraft:iron_ingot", "T": TETRIUM, "C": "minecraft:compass"}),
+    # the parts (D57)
+    "mobile_engine": (["IMI", "IRI", "III"], {"I": "minecraft:iron_ingot", "M": MAGNATITE, "R": "minecraft:redstone_block"}),
+    "mobile_floater": (["III", "WBW", "III"], {"I": "minecraft:iron_ingot", "W": "minecraft:white_wool", "B": "minecraft:bucket"}),
+    "mobile_balloon": (["TWT", "WPW", "TWT"], {"T": TETRIUM, "W": "minecraft:white_wool", "P": "minecraft:phantom_membrane"}),
+    "mobile_jet_engine": (["M M", "EBE", "M M"], {"M": MAGNATITE, "E": f"{MOD}:mobile_engine", "B": "minecraft:blaze_rod"}),
     # Iron Bars at the corners, the GPS top-middle, the Processor left-middle, the Gyroscope right-middle,
     # a Tetrium Ingot bottom-middle, an Amethyst Block in the middle
     "mobile_core": (["BSB", "PAY", "BTB"], {"B": "minecraft:iron_bars", "S": f"{MOD}:mobile_core_gps", "P": f"{MOD}:mobile_core_processor",
                                           "Y": f"{MOD}:mobile_core_gyroscope", "T": TETRIUM, "A": "minecraft:amethyst_block"}),
+}
+
+
+# shaped recipes that make more than one: name -> (pattern, key, count)
+RECIPES_COUNTED = {
+    "mobile_wing": (["TTT", "III"], {"T": TETRIUM, "I": "minecraft:iron_ingot"}, 2),
 }
 
 
@@ -51,7 +64,15 @@ def main():
             "key": {k: {"item": v} for k, v in key.items()},
             "result": {"item": f"{MOD}:{name}", "count": 1},
         })
-    print(f"{len(RECIPES_SHAPED)} shaped recipes -> {RECIPES.relative_to(ROOT)}")
+    for name, (pattern, key, count) in RECIPES_COUNTED.items():
+        write(RECIPES / f"{name}.json", {
+            "type": "minecraft:crafting_shaped",
+            "category": "misc",
+            "pattern": pattern,
+            "key": {k: {"item": v} for k, v in key.items()},
+            "result": {"item": f"{MOD}:{name}", "count": count},
+        })
+    print(f"{len(RECIPES_SHAPED) + len(RECIPES_COUNTED)} shaped recipes -> {RECIPES.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

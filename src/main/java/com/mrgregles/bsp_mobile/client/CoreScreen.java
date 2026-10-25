@@ -39,7 +39,7 @@ public class CoreScreen extends Screen {
     private static final float SMALL = 0.75f, TINY = 0.65f;
     private static final long SURE_MS = 3000;
     private static final int REFRESH_TICKS = 40, SAVE_DELAY_TICKS = 20;
-    private static final int CORE = 0, BLOCKS = 1, UPGRADE = 2;
+    private static final int CORE = 0, BLOCKS = 1, UPGRADE = 2, HELM = 3, PLAN = 4;
     private static final int SURE_RELEASE = 1, SURE_LOCK = 2, SURE_BUY = 3;
 
     private CoreViewPacket view;
@@ -52,6 +52,9 @@ public class CoreScreen extends Screen {
     private final List<Ui.Hit> hits = new ArrayList<>();
     @Nullable
     private EditBox nameBox;
+    @Nullable
+    private EditBox cruiseBox;
+    private String cruiseTyped = "";
     private String typed = "";
     private boolean dirty;
     private int dirtyTicks;
@@ -91,6 +94,13 @@ public class CoreScreen extends Screen {
         if (nameBox != null) {
             nameBox.setEditable(next.admitted());
         }
+        if (cruiseBox != null) {
+            cruiseBox.setEditable(next.admitted());
+            if (!cruiseBox.isFocused() && !Integer.toString(next.cruise()).equals(cruiseTyped)) {
+                cruiseTyped = Integer.toString(next.cruise());
+                cruiseBox.setValue(cruiseTyped);
+            }
+        }
         if (!next.note().isEmpty()) {
             note = next.note();
             noteUntil = System.currentTimeMillis() + SURE_MS;
@@ -115,6 +125,22 @@ public class CoreScreen extends Screen {
         });
         nameBox.visible = tab == CORE;
         addRenderableWidget(nameBox);
+        cruiseBox = new EditBox(font, left() + W - PAD - 40, top() + 22, 36, 12, Component.literal(Tr.t("plan.cruise")));
+        cruiseBox.setMaxLength(3);
+        cruiseBox.setBordered(false);
+        cruiseBox.setTextColor(Ui.TEXT);
+        cruiseBox.setFilter(s -> s.matches("[0-9]{0,3}"));
+        cruiseTyped = Integer.toString(view.cruise());
+        cruiseBox.setValue(cruiseTyped);
+        cruiseBox.setEditable(view.admitted());
+        cruiseBox.setResponder(s -> {
+            if (!s.equals(cruiseTyped) && !s.isEmpty()) {
+                cruiseTyped = s;
+                send(CoreActionPacket.Action.PLAN_CRUISE, s);
+            }
+        });
+        cruiseBox.visible = tab == PLAN;
+        addRenderableWidget(cruiseBox);
     }
 
     @Override
@@ -158,7 +184,7 @@ public class CoreScreen extends Screen {
         String[] tabs = {Tr.t("tab.core"), Tr.t("tab.blocks"), Tr.t("tab.upgrade"), Tr.t("tab.helm"), Tr.t("tab.plan")};
         int tx = x + W - PAD - tabs.length * TAB_W - (tabs.length - 1) * 3;
         for (int i = 0; i < tabs.length; i++) {
-            boolean closed = i > UPGRADE, on = i == tab;
+            boolean closed = i > PLAN, on = i == tab;
             int bx = tx + i * (TAB_W + 3);
             g.fill(bx, y + 5, bx + TAB_W, y + 5 + TAB_H, on ? Ui.TEAL : Ui.DIM);
             String s = Ui.fit(font, tabs[i].toUpperCase(Locale.ROOT), TAB_W - 4, TINY);
@@ -172,9 +198,14 @@ public class CoreScreen extends Screen {
         if (nameBox != null) {
             nameBox.visible = tab == CORE;
         }
+        if (cruiseBox != null) {
+            cruiseBox.visible = tab == PLAN;
+        }
         switch (tab) {
             case CORE -> drawCore(g, x, y);
             case BLOCKS -> drawBlocks(g, x, y);
+            case HELM -> drawHelm(g, x, y);
+            case PLAN -> drawPlan(g, x, y);
             default -> drawUpgrade(g, x, y);
         }
         super.render(g, mouseX, mouseY, partialTick);
@@ -297,7 +328,7 @@ public class CoreScreen extends Screen {
         Ui.text(g, font, Tr.t("aboard").toUpperCase(Locale.ROOT), ax + 6, by + 6, Ui.MUTED, TINY);
         int ay = by + 15;
         String[] aboardLines = {Tr.t("aboard.totems", view.totems()), Tr.t("aboard.chests", view.chests(), view.machines()),
-                Tr.t("owner", view.ownerName().isEmpty() ? "?" : view.ownerName()), Tr.t("helm.open")};
+                Tr.t("owner", view.ownerName().isEmpty() ? "?" : view.ownerName()), Tr.t(view.locked() ? "helm.open_locked" : "helm.open")};
         for (int i = 0; i < aboardLines.length; i++) {
             Ui.text(g, font, Ui.fit(font, aboardLines[i], aw - 12, SMALL), ax + 6, ay, i < 2 ? Ui.TEXT : Ui.MUTED, SMALL);
             ay += 9;
@@ -535,6 +566,152 @@ public class CoreScreen extends Screen {
         return sb.toString();
     }
 
+    /** The HELM tab (D42, Layout 1): speed, heading and driver readouts, the helms and the anchor, one key. */
+    private void drawHelm(GuiGraphics g, int x, int y) {
+        ConstructState state = state();
+        boolean assembled = state != ConstructState.NOT_ASSEMBLED;
+        String header = Tr.t(state == ConstructState.MOVING ? "helm.header_way" : "helm.header_still", view.name());
+        Ui.text(g, font, Ui.fit(font, header.toUpperCase(Locale.ROOT), W - 2 * PAD, TINY), x + PAD, y + 24, Ui.MUTED, TINY);
+        int bx = x + PAD, by = y + 34, bw = (W - 2 * PAD - 12) / 3, bh = 44;
+        Ui.inset(g, bx, by, bw, bh);
+        Ui.text(g, font, Tr.t("helm.speed").toUpperCase(Locale.ROOT), bx + 6, by + 5, Ui.MUTED, TINY);
+        Ui.text(g, font, String.format(Locale.ROOT, "%.1f", view.speed()), bx + 6, by + 13, state == ConstructState.MOVING ? Ui.GOLD : Ui.TEXT, 1.6f);
+        Ui.text(g, font, Ui.fit(font, Tr.t("helm.speed_unit", String.format(Locale.ROOT, "%.0f", view.topSpeed())), bw - 12, TINY), bx + 6, by + 33, Ui.MUTED, TINY);
+        int hx = bx + bw + 6;
+        Ui.inset(g, hx, by, bw, bh);
+        Ui.text(g, font, Tr.t("helm.heading").toUpperCase(Locale.ROOT), hx + 6, by + 5, Ui.MUTED, TINY);
+        Ui.text(g, font, view.heading() < 0 ? "-" : Tr.t("helm.degrees", view.heading()), hx + 6, by + 13, Ui.TEXT, 1.6f);
+        if (view.heading() >= 0) {
+            Ui.text(g, font, Ui.fit(font, Tr.t("compass." + compass(view.heading())), bw - 12, TINY), hx + 6, by + 33, Ui.MUTED, TINY);
+        }
+        int dx = hx + bw + 6;
+        Ui.inset(g, dx, by, bw, bh);
+        Ui.text(g, font, Tr.t("helm.driver").toUpperCase(Locale.ROOT), dx + 6, by + 5, Ui.MUTED, TINY);
+        boolean driven = !view.driverName().isEmpty();
+        Ui.text(g, font, Ui.fit(font, driven ? view.driverName() : Tr.t("helm.driver_none"), bw - 12, 1f), dx + 6, by + 16, driven ? Ui.TEXT : Ui.MUTED, 1f);
+        if (driven) {
+            Ui.text(g, font, Ui.fit(font, Tr.t("helm.at_helm"), bw - 12, TINY), dx + 6, by + 33, Ui.MUTED, TINY);
+        }
+        int ly = by + bh + 6, lw = W - 2 * PAD, ky = y + H - PAD - KEY_H, lh = ky - 10 - ly;
+        Ui.inset(g, bx, ly, lw, lh);
+        List<String> lines = new ArrayList<>();
+        if (!assembled) {
+            lines.add(Tr.t("helm.not_assembled"));
+        }
+        if (view.helms() == 0) {
+            lines.add(Tr.t("helm.helms_none"));
+        } else {
+            lines.add(Tr.t("helm.helms", view.helms()) + " · " + Tr.t(view.locked() ? "helm.locked_drive" : "helm.anyone"));
+        }
+        lines.add(view.anchored() ? Tr.t("helm.anchor_down") : Tr.t("helm.anchor_up"));
+        if (view.closedRegion()) {
+            lines.add(Tr.t("helm.closed_region"));
+        }
+        if (view.engines() + view.floaters() + view.balloons() + view.wings() + view.jets() > 0) {
+            lines.add(Tr.t("helm.parts", view.engines(), view.floaters(), view.balloons(), view.wings(), view.jets()));
+        } else {
+            lines.add(Tr.t("helm.parts_none"));
+        }
+        if (view.liftCapacity() > 0 && assembled) {
+            lines.add(Tr.t("helm.lift", String.format(Locale.ROOT, "%.0f", Math.min(view.liftCapacity(), view.mass())), String.format(Locale.ROOT, "%.0f", view.mass())));
+            lines.add(view.ceiling() >= 0 ? Tr.t("helm.height", view.height(), view.ceiling()) : Tr.t("helm.height_free", view.height()));
+        }
+        if (view.totems() > 0) {
+            lines.add(Tr.t("helm.totem_cap", String.format(Locale.ROOT, "%.0f", view.topSpeed())));
+        }
+        int ty = ly + 6;
+        for (String s : lines) {
+            for (String line : Ui.wrap(font, s, lw - 12, SMALL)) {
+                Ui.text(g, font, line, bx + 6, ty, Ui.TEXT, SMALL);
+                ty += 9;
+            }
+        }
+        String label = view.anchored() ? Tr.t("key.anchor_weigh") : Tr.t("key.anchor_drop");
+        if (assembled && view.admitted()) {
+            Ui.key(g, font, label, bx, ky, 84, KEY_H, Ui.DIM, Ui.TEXT, SMALL);
+            hits.add(new Ui.Hit(bx, ky, 84, KEY_H, () -> send(CoreActionPacket.Action.ANCHOR, view.anchored() ? "up" : "down")));
+        } else {
+            Ui.key(g, font, label, bx, ky, 84, KEY_H, Ui.DIM, 0xFF5A6270, SMALL);
+            if (assembled) {
+                Ui.text(g, font, Tr.t("locked_hint"), bx + 88, ky + 4, Ui.VIOLET, TINY);
+            }
+        }
+        drawNote(g, x, ky);
+    }
+
+    /** The PLAN tab (D67, Layout 1): the waypoints, the cruise height, ADD HERE, REMOVE, GO or STOP. */
+    private void drawPlan(GuiGraphics g, int x, int y) {
+        int n = view.plan().length;
+        String header = view.planRunning() ? Tr.t("plan.header_way", view.planNext() + 1, n) : Tr.t("plan.header", n);
+        Ui.text(g, font, Ui.fit(font, header.toUpperCase(Locale.ROOT), 200, TINY), x + PAD, y + 24, Ui.MUTED, TINY);
+        String cl = Tr.t("plan.cruise").toUpperCase(Locale.ROOT);
+        Ui.text(g, font, cl, x + W - PAD - 44 - Ui.width(font, cl, TINY), y + 24, Ui.MUTED, TINY);
+        Ui.inset(g, x + W - PAD - 42, y + 20, 42, 15);
+        int lx = x + PAD, ly = y + 38, lw = W - 2 * PAD, ky = y + H - PAD - KEY_H, lh = ky - 24 - ly;
+        Ui.inset(g, lx, ly, lw, lh);
+        if (n == 0) {
+            int ty = ly + 6;
+            for (String line : Ui.wrap(font, Tr.t("plan.empty"), lw - 12, SMALL)) {
+                Ui.text(g, font, line, lx + 6, ty, Ui.MUTED, SMALL);
+                ty += 9;
+            }
+        } else {
+            int visible = lh / ROW_H;
+            listScroll = Mth.clamp(listScroll, 0, Math.max(0, n - visible));
+            Ui.scissor(g, lx, ly, lx + lw, ly + lh);
+            for (int i = listScroll; i < Math.min(n, listScroll + visible); i++) {
+                int ry = ly + (i - listScroll) * ROW_H;
+                net.minecraft.core.BlockPos p = net.minecraft.core.BlockPos.of(view.plan()[i]);
+                boolean cur = view.planRunning() && i == view.planNext(), passed = view.planRunning() && i < view.planNext();
+                if (cur) {
+                    g.fill(lx + 1, ry, lx + lw - 1, ry + ROW_H, 0xFF132A28);
+                    g.fill(lx + 1, ry, lx + 3, ry + ROW_H, Ui.TEAL);
+                } else if (i > listScroll) {
+                    g.fill(lx + 1, ry, lx + lw - 1, ry + 1, Ui.ROW_LINE);
+                }
+                int colour = passed ? Ui.MUTED : Ui.TEXT;
+                Ui.text(g, font, Integer.toString(i + 1), lx + 6, ry + 3, colour, SMALL);
+                Ui.text(g, font, Tr.t("plan.row", p.getX(), p.getY(), p.getZ()), lx + 22, ry + 3, colour, SMALL);
+                String right = passed ? Tr.t("plan.passed") : cur && view.planDistance() >= 0 ? Tr.t("plan.blocks", view.planDistance())
+                        : i == n - 1 ? Tr.t("plan.landing") : "";
+                Ui.text(g, font, right, lx + lw - 6 - Ui.width(font, right, SMALL), ry + 3, cur ? Ui.GOLD : Ui.MUTED, SMALL);
+            }
+            g.disableScissor();
+        }
+        int hy = ly + lh + 4;
+        for (String line : Ui.wrap(font, Tr.t("plan.hint"), lw, TINY)) {
+            Ui.text(g, font, line, lx, hy, Ui.MUTED, TINY);
+            hy += 7;
+        }
+        boolean may = view.admitted();
+        Ui.key(g, font, Tr.t("key.plan_add"), lx, ky, 64, KEY_H, may ? Ui.DIM : Ui.DIM, may ? Ui.TEXT : 0xFF5A6270, SMALL);
+        Ui.ghostKey(g, font, Tr.t("key.plan_remove"), lx + 70, ky, 56, KEY_H, may && n > 0 ? Ui.MUTED : 0xFF5A6270, SMALL);
+        if (may) {
+            hits.add(new Ui.Hit(lx, ky, 64, KEY_H, () -> send(CoreActionPacket.Action.PLAN_ADD, "")));
+            hits.add(new Ui.Hit(lx + 70, ky, 56, KEY_H, () -> send(CoreActionPacket.Action.PLAN_REMOVE, "")));
+        }
+        int gx = x + W - PAD - 64;
+        if (view.planRunning()) {
+            Ui.key(g, font, Tr.t("key.plan_stop"), gx, ky, 64, KEY_H, Ui.SURE_BG, Ui.SURE_FG, SMALL);
+            Ui.frame(g, gx, ky, 64, KEY_H, Ui.SURE_LINE);
+            if (may) {
+                hits.add(new Ui.Hit(gx, ky, 64, KEY_H, () -> send(CoreActionPacket.Action.PLAN_STOP, "")));
+            }
+        } else {
+            boolean can = may && n > 0 && view.helms() > 0 && state() != ConstructState.NOT_ASSEMBLED;
+            Ui.key(g, font, Tr.t("key.plan_go"), gx, ky, 64, KEY_H, can ? Ui.TEAL : Ui.DIM, can ? Ui.INK : 0xFF5A6270, SMALL);
+            if (can) {
+                hits.add(new Ui.Hit(gx, ky, 64, KEY_H, () -> send(CoreActionPacket.Action.PLAN_GO, "")));
+            }
+        }
+        drawNote(g, x, ky);
+    }
+
+    private static String compass(int deg) {
+        String[] k = {"n", "ne", "e", "se", "s", "sw", "w", "nw"};
+        return k[(int) Math.round(deg / 45.0) % 8];
+    }
+
     private static String blockName(String id) {
         ResourceLocation rl = ResourceLocation.tryParse(id);
         Block block = rl == null ? null : ForgeRegistries.BLOCKS.getValue(rl);
@@ -563,7 +740,7 @@ public class CoreScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
-        if (tab == BLOCKS) {
+        if (tab == BLOCKS || tab == PLAN) {
             listScroll -= (int) Math.signum(delta);
             return true;
         }

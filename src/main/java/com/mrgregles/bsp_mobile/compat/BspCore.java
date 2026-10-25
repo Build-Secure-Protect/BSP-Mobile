@@ -71,6 +71,18 @@ public final class BspCore {
         }
     }
 
+    /** True when BSP-Core lists this server as one without totem placement (D49: such a server allows no constructs). */
+    public static boolean isNoTotemServer() {
+        if (!isPresent()) {
+            return false;
+        }
+        try {
+            return Impl.isNoTotemServer();
+        } catch (LinkageError | RuntimeException e) {
+            return false;
+        }
+    }
+
     // ------------------------------------------------------------------ Shatter Coins (the tiers' prices, D20)
 
     /** True when BSP-Core's coins can be read and taken. */
@@ -161,6 +173,10 @@ public final class BspCore {
 
         static boolean isAdmin(Player player) {
             return com.mrgregles.bsp_core.api.BspPlayers.isAdmin(player);
+        }
+
+        static boolean isNoTotemServer() {
+            return com.mrgregles.bsp_core.api.BspZones.isNoTotemServer();
         }
 
         static List<String> coinTiers() {

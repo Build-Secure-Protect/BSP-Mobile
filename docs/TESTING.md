@@ -58,3 +58,82 @@ In game (two accounts needed for the steal; survival unless said):
 8. Mine a locked core as its owner: the core item and a lock drop.
 9. Assemble a construct with a placed Shatter Totem touching it: the Aboard box shows "1 Shatter Totems" and the gold line "Totem aboard: slowed and height-capped" (the caps act once constructs drive).
 10. On a server: `serverconfig/bsp_mobile-server.toml` gains `lock.stealSeconds`, `lock.stealRadius`, `lock.graceSeconds`, `totem.maxSpeed` and `totem.maxHeight`; set `stealSeconds` to 20 and a steal takes 20 seconds. Teammates (BSP-Core Teams) may use a locked core: check with a team of two.
+
+## 2026-10-25: MB-4, the Mobile Helm, driving and floating
+
+Headless: 22 GameTests; every required one passes (twice running) and the one optional test fails as expected. New: the drive maths (full thrust north on 100 mass is 400 along the facing, sprint doubles it, at the top speed only drag remains, coasting drags on both axes, a left turn is a positive torque that vanishes once yawing at the turn rate); the helm says "assemble first" on an unassembled structure, refuses a stranger on a locked core, seats the owner (the helm knows its driver, the player rides the seat, the construct is no longer parked) and refuses a second taker; the helm's recipe. **The optional test** (a driven construct moving north, then parking itself when left) cannot pass headlessly: the engine's physics tick reaches the mod (hundreds of ticks are counted), but its physics level never holds a body for the construct, so no force is ever applied. **Driving, floating and self-parking have therefore not run anywhere yet.**
+
+In game (survival unless said; a flat area and some water):
+1. Craft a Mobile Helm (Iron Ingots round a Compass, a Tetrium Ingot on top). Its icon shows the pedestal and wheel; the tooltip explains the keys. It sits beside the core in Functional Blocks.
+2. Place it on a small build with a core: the wheel faces the way you looked when placing, and you stand behind the pedestal to use it. Right-click it before assembling: "Assemble the construct first." above the hotbar.
+3. Assemble, then right-click the helm: you are held at the helm facing the wheel; the core's HELM tab shows you as the driver and "Anchor: weighed". Press W: the construct moves off the way the helm faces; S slows and backs it; A and D turn it; sprint with W is faster; let go and it coasts to a halt within a few seconds; sneak and you step off. The core's ring turns gold while it moves, teal when it has stopped.
+4. Leave it standing: about 3 seconds after it stops the HELM tab says "Anchor: down" and the construct is parked (RELEASE works again). WEIGH ANCHOR frees it; DROP ANCHOR parks it at once.
+5. Drive it onto water: it floats (the hull sits in the water like a boat) and drives on; adjust `drive.buoyancy` in the server config if it sits too high or sinks. Drive it into a wall: it stops (damage comes with the next task).
+6. Top speed: with `drive.maxSpeed` 8 the speed readout settles near 8; set it to 3 and restart: it settles near 3. With a placed Shatter Totem aboard the speed settles near 5 (`totem.maxSpeed`) and the HELM tab says so.
+7. Lock the core as its owner; a second account cannot take the helm ("This construct is locked by its owner.") and sees the anchor key greyed with "locked"; the owner can. A teammate (BSP-Core Teams) can.
+8. Two helms aboard: either drives; the HELM tab counts "2 helms aboard" and names whoever is driving.
+9. Break the helm while someone drives: they are set down and the construct coasts to a halt and parks. Release the construct with a driver at the helm: the driver is set down.
+10. On a server: `serverconfig/bsp_mobile-server.toml` gains `drive.acceleration`, `drive.maxSpeed`, `drive.turnRate`, `drive.drag`, `drive.buoyancy` and `drive.parkSeconds`.
+
+## 2026-10-25: MB-5, damage
+
+Headless: 25 required GameTests pass (twice running), the three new ones: the impact rule (nothing at or under 6 blocks a second, one block per 2 over it rounded up, the cap, a cap of 0 switches impacts off); an impact at a corner of an assembled construct knocks off the two nearest blocks and never the core, and a huge impact takes every block but the core; a construct whose core is destroyed in the shipyard breaks up on the next tick, its blocks back in the world where it stood and the core gone. **Impacts from real collisions need the engine's physics and have not run anywhere**; the collision hook is in place.
+
+In game:
+1. Drive a construct into a stone wall at speed (sprint, a long run-up): blocks at the bow break off and drop; the core and the helm never do. At a crawl nothing breaks. Hit the wall again within a second: no second loss.
+2. Drive one construct into another: both lose blocks at the contact.
+3. Light TNT aboard: the blast breaks blocks aboard and pushes the construct; the gather's count on the CORE tab falls.
+4. Fire a Create Big Cannons shot (or any weapon on the owner's list) at a construct: the hit breaks blocks aboard as on land.
+5. Mine blocks aboard with a pickaxe: they drop, the count falls, the construct goes on working.
+6. Destroy the core of an assembled construct with TNT (survival cannot mine it): chat says the construct broke up, its blocks stand in the world where it was, snapped to 90 degrees, the core is gone. Do the same with the construct hanging over a pit so there is no room: chat says it lies where it is as a derelict; it cannot be driven; place a new core in it and assemble again.
+7. On a server: `serverconfig/bsp_mobile-server.toml` gains `damage.impactSpeed`, `damage.blocksPerSpeed`, `damage.maxBlocksPerImpact` and `damage.cooldownTicks`; set `maxBlocksPerImpact` to 0 and crashes break nothing.
+
+## 2026-10-25: MB-6, where constructs may go
+
+Headless: 28 required GameTests pass (twice running), the three new ones: a closed server (`regions.closed`, set and restored within the tick) refuses assembly with "closed_server"; the back-out rule refuses forward thrust inside a closed region and nothing else; with Region Guard on the test server, `/rg flag __global__ mobile-constructs deny` makes the position refuse constructs and assembly fail with "closed_region", and `allow` lets it through. **Driving into a closed region (the clamp on the helm) needs physics and has not run anywhere.**
+
+In game (with Region Guard):
+1. `/rg flag <spawn region> mobile-constructs deny` (Region Guard's admin screen lists the flag without a description). Place a core inside spawn and ASSEMBLE: "Constructs may not be assembled here." Outside spawn it assembles.
+2. Drive a construct into spawn: the HELM tab shows "Closed region: the construct can only back out."; W does nothing, S backs it out; outside again W works.
+3. RELEASE inside a denying region: allowed.
+4. On a no-totem server (BSP-Core's `restrictions.noTotemServers`): ASSEMBLE says "This server allows no constructs."; set `regions.closedOnNoTotemServers = false` in that server's config and it assembles. On any server `regions.closed = true` refuses every assembly.
+5. Without Region Guard installed the mod starts and only the server switches apply.
+
+## 2026-10-25: MB-7, parts and flight
+
+Headless: 31 required GameTests pass (twice running), the three new ones: the flight maths (no lift without parts; half the lift carries half the weight; balloons cancel the weight exactly and damp a rise; space climbs and sprint with space descends at the climb rate; at the ceiling climbing only holds the weight; jets alone sink slowly; the forces carry the lift upward only); two engines, a floater, two balloons, a wing and a jet beside a core are counted from the gather with the wing's position, add up to the config's figures, and the helm's command carries them with the totem's cap and the back-out clamp; the five parts and the helm have recipes with the right results (the wing makes two). **Flight, buoyancy from floaters and the engine's wing aerodynamics need physics and have not run anywhere.**
+
+In game:
+1. Craft the five parts (D57). Each shows its block and tooltip; they sit beside the core in Functional Blocks.
+2. Two Mobile Engines aboard: the HELM tab's parts line counts them and the top speed reads 12; the construct accelerates and runs faster than without.
+3. A stone hull that sinks: add Mobile Floaters until it floats; the parts line counts them.
+4. Balloons: add Mobile Balloons until the HELM tab's lift line carries the whole mass; the construct lifts off the ground and hovers level; space climbs; sprint with space descends; let go and it holds its height. With half the balloons the lift line shows a part of the mass and the construct only falls slowly.
+5. A placed Shatter Totem aboard a balloon construct: the height line shows the ceiling (the ground beneath plus 64); climbing stops there.
+6. Mobile Wings on a construct with jet engines: drive it fast and level and it lifts (the engine's aerodynamics); fly it into a wall at speed and blocks break off.
+7. Jet engines alone: space climbs; let go and it sinks slowly to the ground.
+8. On a server: `serverconfig/bsp_mobile-server.toml` gains the `parts` section; halve `balloonLift` and twice the balloons are needed.
+
+## 2026-10-25: MB-8, admin tools
+
+Headless: 34 required GameTests pass (twice running), the three new ones: with the per-player cap set to 1 (set and restored within the tick) a second construct for the same owner is refused with "limit_player"; a construct saved as a structure file and pasted elsewhere comes back as a working, parked copy with its name, tier and the admin as owner (the file is removed after); `mobile list` counts the construct and `mobile remove <id>` sets it down with its core unassembled, both run as server commands.
+
+In game (as an operator or BSP-Core admin):
+1. `/mobile list`: every construct with its number, name, owner, block count, tier, place, dimension and state. Without any: "No constructs on this server."
+2. `/mobile tp <id>`: you stand on the construct's core.
+3. `/mobile remove <id>`: the construct is set down where it stands, like a release; `/mobile remove <id> delete` removes it and its blocks (nothing drops). Both appear in the server log with your name.
+4. `/mobile save <id> harbour` then `/mobile files`: the file `config/bsp_mobile/constructs/harbour.nbt` exists and is listed. `/mobile paste harbour` while looking at open ground four blocks away: the construct appears there, assembled and parked, owned by you, with its chests' contents; the command tab-completes saved names. Pasting into blocks already there overwrites them.
+5. `/mobile limits`: the count against the caps, the tier ladder, the impact speed and whether this server is open.
+6. With `limits.perPlayer = 1`: your second ASSEMBLE says "You own as many constructs as a player may."; with `limits.perServer = 1` anyone's second says the server carries as many as it allows.
+7. A player who is neither operator nor admin: `/mobile` is unknown to them.
+
+## 2026-10-25: MB-9, the autopilot
+
+Headless: 37 required GameTests pass (twice running), the three new ones: the steering (north 0, east 90, south 180, west 270; dead ahead full thrust and no turn; to the right a right turn and no thrust; a little left within the cone thrust and a gentle turn; half thrust within 12 blocks; climb below the cruise height, sprint and up above it, nothing within the band or without lift; a waypoint counts within 4 blocks); the plan on an unassembled core (GO refused, ADD HERE adds the player's block, the cap of 16, REMOVE, the cruise height, save and load, a stranger refused on a locked core); on an assembled construct with a helm one step of the plan sets thrust toward the waypoint and frees the construct, and a driver taking the helm stops it and clears the inputs. **The core's ticker that steps the plan does not run in the shipyard on the headless server, so the plan running on its own, the arrival, the pulse and the parking have not run anywhere.**
+
+In game:
+1. Open PLAN on an unassembled core: "No waypoints…" and GO greyed. Walk a route and press ADD HERE at each turn: the rows fill with your positions; REMOVE drops the last; type a cruise height (30).
+2. Assemble a construct with a helm and some engines (balloons for a flying one), open PLAN and press GO: "Under way."; the construct frees itself, turns toward waypoint 1, drives there, turns to the next; the HELM tab shows the autopilot's speed and heading; the PLAN tab highlights the next waypoint with its distance and dims the passed ones; STOP halts it.
+3. With balloons and a cruise height: it climbs to the height above the ground and holds it between waypoints; with a totem aboard it stays under the ceiling.
+4. At the last waypoint it stops, parks itself, and a redstone lamp touching the core lights for two seconds.
+5. Take a helm while it flies: the plan stops and you drive. Drive it into a closed region under the plan: it stops.
+6. A construct without a helm: GO greyed ("No helm aboard." when forced). Break the core's construct apart and re-assemble: the plan is still there.

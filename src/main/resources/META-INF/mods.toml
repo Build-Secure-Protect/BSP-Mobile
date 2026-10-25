@@ -31,6 +31,14 @@ description='''${mod_description}'''
     ordering="AFTER"
     side="BOTH"
 
+# Optional: with BSP Region Guard the flag mobile-constructs decides where constructs may be assembled and driven.
+[[dependencies.${mod_id}]]
+    modId="bsp_region_guard"
+    mandatory=false
+    versionRange="${bsp_region_guard_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
 # BSP-Core: the Shatter Coins that buy a core's tiers, the metals in the parts' recipes, totems, teams and the admin list.
 [[dependencies.${mod_id}]]
     modId="bsp_core"

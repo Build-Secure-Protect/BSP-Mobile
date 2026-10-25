@@ -1,6 +1,11 @@
 {
   "replace": false,
   "values": [
-    "bsp_mobile:mobile_core"
+    "bsp_mobile:mobile_core",
+    "bsp_mobile:mobile_helm",
+    "bsp_mobile:mobile_engine",
+    "bsp_mobile:mobile_floater",
+    "bsp_mobile:mobile_wing",
+    "bsp_mobile:mobile_jet_engine"
   ]
 }

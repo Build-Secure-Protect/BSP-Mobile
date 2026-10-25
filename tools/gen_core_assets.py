@@ -223,11 +223,157 @@ def data():
                 {"source": "Name", "target": "BlockEntityTag.Name", "op": "replace"},
                 {"source": "Tier", "target": "BlockEntityTag.Tier", "op": "replace"}]}]}],
         "conditions": [{"condition": "minecraft:survives_explosion"}]}]})
-    write(DATA / "minecraft/tags/blocks/mineable/pickaxe.json", {"replace": False, "values": [f"{MOD}:{NAME}"]})
+    write(DATA / "minecraft/tags/blocks/mineable/pickaxe.json", {"replace": False, "values": [f"{MOD}:{NAME}", f"{MOD}:mobile_helm", f"{MOD}:mobile_engine",
+                                                                                                f"{MOD}:mobile_floater", f"{MOD}:mobile_wing", f"{MOD}:mobile_jet_engine"]})
+    write(DATA / "minecraft/tags/blocks/mineable/hoe.json", {"replace": False, "values": [f"{MOD}:mobile_balloon"]})
     write(DATA / "minecraft/tags/blocks/needs_stone_tool.json", {"replace": False, "values": [f"{MOD}:{NAME}"]})
     # blocks a core never takes (R5): BSP-Core's admin blocks and Anti Totem blocks; each optional, so the tag loads without BSP-Core
     admin = ["bank_atm", "safety_deposit_box", "land_office", "vendor_post", "market_stall", "stall_display", "score_screen", "anti_totem", "admin_rack"]
     write(DATA / MOD / "tags/blocks/never_mobile.json", {"replace": False, "values": [{"id": f"bsp_core:{b}", "required": False} for b in admin]})
+
+
+HELM = "mobile_helm"
+
+
+def helm_pedestal_face():
+    """A riveted iron face for the pedestal: 16 x 16, bars at the edges, rivets at the corners."""
+    rows = []
+    for y in range(16):
+        row = []
+        for x in range(16):
+            edge = x in (0, 15) or y in (0, 15)
+            row.append(IRON_D if edge else IRON)
+        rows.append(row)
+    for x, y in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        rows[y][x] = IRON_L
+    return rows
+
+
+def helm_wheel_face():
+    """The wheel: a Tetrium rim, four iron spokes, a teal hub; clear elsewhere (drawn flat, facing the driver)."""
+    rows = [[CLEAR] * 16 for _ in range(16)]
+    cx = cy = 7.5
+    for y in range(16):
+        for x in range(16):
+            d = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+            if 6.0 <= d <= 7.6:
+                rows[y][x] = (0x6B, 0x4E, 0xA8, 255) if (x + y) % 3 else (0xB5, 0x8C, 0xFF, 255)
+            elif d < 6.0 and (x in (7, 8) or y in (7, 8) or abs(x - y) <= 0 or abs(x + y - 15) <= 0):
+                rows[y][x] = IRON_L if d > 2 else (0x19, 0xD3, 0xB0, 255)
+    return rows
+
+
+def helm():
+    t = ASSETS / "textures/block"
+    png(t / f"{HELM}_pedestal.png", helm_pedestal_face())
+    png(t / f"{HELM}_wheel.png", helm_wheel_face())
+    ped = {"texture": "#pedestal"}
+    elements = [
+        {"from": [2, 0, 2], "to": [14, 2, 14], "faces": {s: dict(ped) for s in ("north", "south", "east", "west", "up", "down")}},   # the base plate
+        {"from": [4, 2, 4], "to": [12, 12, 12], "faces": {s: dict(ped) for s in ("north", "south", "east", "west", "up", "down")}},  # the column
+        {"from": [7, 10, 1], "to": [9, 12, 8], "faces": {s: dict(ped) for s in ("north", "south", "east", "west", "up", "down")}},  # the shaft to the wheel
+        # the wheel: a thin slab at the front (north), both faces the wheel texture, so it reads from either side
+        {"from": [1, 4, 1], "to": [15, 18, 2], "faces": {"north": {"texture": "#wheel"}, "south": {"texture": "#wheel"}}},
+    ]
+    write(ASSETS / "models/block" / f"{HELM}.json", {
+        "parent": "minecraft:block/block",
+        "render_type": "minecraft:cutout",
+        "textures": {"pedestal": f"{MOD}:block/{HELM}_pedestal", "wheel": f"{MOD}:block/{HELM}_wheel", "particle": f"{MOD}:block/{HELM}_pedestal"},
+        "elements": elements})
+    write(ASSETS / "models/item" / f"{HELM}.json", {"parent": f"{MOD}:block/{HELM}"})
+    # facing: the wheel stands at the north side of the model; the driver faces the wheel, so the block's facing is where the driver looks
+    write(ASSETS / "blockstates" / f"{HELM}.json", {"variants": {
+        "facing=north": {"model": f"{MOD}:block/{HELM}"},
+        "facing=east": {"model": f"{MOD}:block/{HELM}", "y": 90},
+        "facing=south": {"model": f"{MOD}:block/{HELM}", "y": 180},
+        "facing=west": {"model": f"{MOD}:block/{HELM}", "y": 270}}})
+    write(DATA / MOD / "loot_tables/blocks" / f"{HELM}.json", {"type": "minecraft:block", "pools": [{
+        "rolls": 1, "entries": [{"type": "minecraft:item", "name": f"{MOD}:{HELM}"}],
+        "conditions": [{"condition": "minecraft:survives_explosion"}]}]})
+
+
+# The part blocks (D52, D56): name -> (texture painter, kind). Full cubes but the wing, a bottom half-slab.
+def _plate(base, dark, light, band=None, band_rows=(), corners=True):
+    rows = []
+    for y in range(16):
+        row = []
+        for x in range(16):
+            edge = x in (0, 15) or y in (0, 15)
+            c = dark if edge else base
+            if band is not None and y in band_rows:
+                c = band
+            row.append(c)
+        rows.append(row)
+    if corners:
+        for x, y in ((2, 2), (13, 2), (2, 13), (13, 13)):
+            rows[y][x] = light
+    return rows
+
+
+GOLD = (0xFF, 0xD2, 0x3A, 255)
+TEAL = (0x19, 0xD3, 0xB0, 255)
+DARK = (0x1B, 0x1F, 0x27, 255)
+VIO4 = (0xB5, 0x8C, 0xFF, 255)
+VIO_D4 = (0x4A, 0x35, 0x76, 255)
+VIO_M4 = (0x8F, 0x6F, 0xD0, 255)
+
+
+def engine_face():
+    return _plate(IRON, IRON_D, IRON_L, GOLD, (6, 7, 8, 9))
+
+
+def floater_face():
+    return _plate(IRON, IRON_D, IRON_L, TEAL, (3, 8, 12), corners=False)
+
+
+def balloon_face():
+    rows = _plate((0x6B, 0x4E, 0xA8, 255), VIO_D4, VIO4, None, (), corners=False)
+    for y in range(16):
+        for x in range(16):
+            if (x + y) % 4 == 0 and 0 < x < 15 and 0 < y < 15:
+                rows[y][x] = VIO_M4
+    for x, y in ((1, 1), (14, 1), (1, 14), (14, 14), (2, 1), (13, 1), (1, 2), (14, 2), (2, 14), (13, 14), (1, 13), (14, 13)):
+        rows[y][x] = IRON
+    return rows
+
+
+def wing_face():
+    rows = _plate(IRON_L, IRON, (0xB9, 0xC1, 0xCF, 255), VIO4, (0, 1), corners=False)
+    return rows
+
+
+def jet_face():
+    rows = _plate((0x3B, 0x42, 0x50, 255), DARK, IRON, None, (), corners=True)
+    cx = cy = 7.5
+    for y in range(16):
+        for x in range(16):
+            d = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+            if d <= 4.5:
+                rows[y][x] = TEAL if d <= 3 else (0x0F, 0x8F, 0x78, 255)
+    return rows
+
+
+PART_BLOCKS = {
+    "mobile_engine": (engine_face, "cube"),
+    "mobile_floater": (floater_face, "cube"),
+    "mobile_balloon": (balloon_face, "cube"),
+    "mobile_wing": (wing_face, "slab"),
+    "mobile_jet_engine": (jet_face, "cube"),
+}
+
+
+def part_blocks():
+    for name, (painter, kind) in PART_BLOCKS.items():
+        png(ASSETS / "textures/block" / f"{name}.png", painter())
+        if kind == "cube":
+            write(ASSETS / "models/block" / f"{name}.json", {"parent": "minecraft:block/cube_all", "textures": {"all": f"{MOD}:block/{name}"}})
+        else:
+            write(ASSETS / "models/block" / f"{name}.json", {"parent": "minecraft:block/slab", "textures": {"bottom": f"{MOD}:block/{name}", "top": f"{MOD}:block/{name}", "side": f"{MOD}:block/{name}"}})
+        write(ASSETS / "models/item" / f"{name}.json", {"parent": f"{MOD}:block/{name}"})
+        write(ASSETS / "blockstates" / f"{name}.json", {"variants": {"": {"model": f"{MOD}:block/{name}"}}})
+        write(DATA / MOD / "loot_tables/blocks" / f"{name}.json", {"type": "minecraft:block", "pools": [{
+            "rolls": 1, "entries": [{"type": "minecraft:item", "name": f"{MOD}:{name}"}],
+            "conditions": [{"condition": "minecraft:survives_explosion"}]}]})
 
 
 def main():
@@ -235,7 +381,9 @@ def main():
     models()
     data()
     parts()
-    print(f"{NAME}: 2 textures, block model (13 elements), item model, blockstate, loot table, 3 tags; {len(PARTS)} part icons and item models")
+    helm()
+    part_blocks()
+    print(f"{NAME}: 2 textures, block model (13 elements), item model, blockstate, loot table, 3 tags; {len(PARTS)} part icons and item models; the helm: 2 textures, model, blockstate, loot table; {len(PART_BLOCKS)} part blocks")
 
 
 if __name__ == "__main__":

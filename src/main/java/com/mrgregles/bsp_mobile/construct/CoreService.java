@@ -93,10 +93,37 @@ public final class CoreService {
         boolean coins = BspCore.coinsAvailable();
         int worth = coins ? BspCore.coinWorth(player) : 0;
         boolean admitted = Access.admitted(level, be, player);
+        // the helms aboard (MB-4): the driver, the heading along the first helm's facing, the top speed with the totem's cap
+        int helms = 0;
+        String driverName = "";
+        net.minecraft.core.Direction helmFacing = null;
+        for (BlockPos p : gather.blocks()) {
+            if (level.getBlockEntity(p) instanceof HelmBlockEntity h) {
+                helms++;
+                if (helmFacing == null) {
+                    helmFacing = h.facing();
+                }
+                if (driverName.isEmpty() && h.hasDriver()) {
+                    driverName = h.driverName();
+                }
+            }
+        }
+        int heading = c == null ? -1 : HelmService.heading(level, be.shipId(), helmFacing);
+        double topSpeed = Math.min(aboard.parts().maxSpeed(), aboard.rules().maxSpeed());
+        boolean anchored = c != null && c.parked();
+        boolean closedRegion = Where.closedRegion(level, pos);
+        Parts parts = aboard.parts();
+        double mass = c == null ? 0 : c.mass();
+        int height = c == null ? 0 : (int) Math.floor(c.positionInWorld().y);
+        int ceiling = c == null || !aboard.rules().capped() ? -1 : HelmService.ceiling(level, c, aboard.rules());
+        long[] plan = be.waypoints().stream().mapToLong(BlockPos::asLong).toArray();
         CoreViewPacket view = new CoreViewPacket(pos, open, be.name(), tier, gather.allowance(), gather.count(), gather.tooMany(),
                 state.ordinal(), c == null ? 0 : c.speed(), refused, kinds, aboard.totems, aboard.chests, aboard.machines,
                 be.ownerName(), owner, nextAllowance, Tiers.count(), coins, Prices.ladder(), worth, coins ? Prices.breakdown(worth) : List.of(),
-                be.locked(), admitted, be.stealRunning() ? be.thiefName() : "", be.stealLeft(), be.stealTotal(), be.stealOutside(), note);
+                be.locked(), admitted, be.stealRunning() ? be.thiefName() : "", be.stealLeft(), be.stealTotal(), be.stealOutside(),
+                driverName, helms, heading, topSpeed, anchored, closedRegion,
+                parts.engines(), parts.floaters(), parts.balloons(), parts.wings(), parts.jets(), parts.liftCapacity(), mass, height, ceiling,
+                plan, be.cruise(), be.planNext(), be.planRunning(), PlanService.distanceToNext(level, be), note);
         MobileNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), view);
         long[] taken = gather.blocks().stream().mapToLong(BlockPos::asLong).toArray();
         long[] left = gather.refused().stream().mapToLong(r -> r.pos().asLong()).toArray();
@@ -104,7 +131,7 @@ public final class CoreService {
     }
 
     /** What the gather carries that the rules care about: placed totems (D2, D34), containers, and other block entities. */
-    public record Aboard(int totems, int chests, int machines) {
+    public record Aboard(int totems, int chests, int machines, Parts parts) {
         public ConstructRules rules() {
             return ConstructRules.of(totems);
         }
@@ -128,7 +155,7 @@ public final class CoreService {
                 machines++;
             }
         }
-        return new Aboard(totems, chests, machines);
+        return new Aboard(totems, chests, machines, Parts.count(level, gather.blocks()));
     }
 
     // ------------------------------------------------------------------ actions
@@ -158,6 +185,14 @@ public final class CoreService {
         }
         if (be.isAssembled()) {
             return Outcome.failed("assembled");
+        }
+        String where = Where.assemblyRefused(level, pos, actor);
+        if (!where.isEmpty()) {
+            return Outcome.failed(where);
+        }
+        String cap = Constructs.capRefused(level.getServer(), be.owner());
+        if (!cap.isEmpty()) {
+            return Outcome.failed(cap);
         }
         if (!ValkyrienSkiesBridge.isPresent()) {
             return Outcome.failed("engine");
@@ -298,8 +333,67 @@ public final class CoreService {
 
     // ------------------------------------------------------------------ the tick: cores not yet found
 
+    /** Constructs whose core was destroyed while assembled (D45), broken up on the next tick. */
+    private static final List<BreakUp> BREAK_UPS = new ArrayList<>();
+
+    private record BreakUp(ServerLevel level, long shipId, String name, @Nullable java.util.UUID owner) {}
+
+    /** The core was destroyed while assembled: the construct breaks up on the next tick (not while the destroyer is still at work). */
+    public static void coreDestroyed(ServerLevel level, MobileCoreBlockEntity be) {
+        if (be.isAssembled() && !ValkyrienSkiesBridge.isBusy(be.shipId())) {
+            BREAK_UPS.add(new BreakUp(level, be.shipId(), be.name(), be.owner()));
+        }
+    }
+
+    private static void breakUp(BreakUp b) {
+        ValkyrienSkiesBridge.Release done = ValkyrienSkiesBridge.release(b.level(), b.shipId());
+        String key = done.ok() ? "message.bsp_mobile.core.broken" : "message.bsp_mobile.core.derelict";
+        if (!done.ok()) {
+            BSPMobile.LOGGER.info("BSP-Mobile: construct {} ({}) lost its core and could not be set down ({}); it lies where it is", b.shipId(), b.name(), done.reason());
+        }
+        if (b.owner() != null) {
+            ServerPlayer p = b.level().getServer().getPlayerList().getPlayer(b.owner());
+            if (p != null) {
+                p.displayClientMessage(net.minecraft.network.chat.Component.translatable(key, b.name()).withStyle(net.minecraft.ChatFormatting.RED), false);
+            }
+        }
+    }
+
+    /** An impact the engine reported: each construct in it that is ours loses blocks at the contact (D44). */
+    private static void impact(net.minecraft.server.MinecraftServer server, ValkyrienSkiesBridge.Impact i) {
+        int n = Damage.blocksToKnock(i.speed());
+        if (n <= 0) {
+            return;
+        }
+        for (long id : new long[]{i.shipA(), i.shipB()}) {
+            if (id == 0) {
+                continue;
+            }
+            for (ServerLevel level : server.getAllLevels()) {
+                Optional<MobileCoreBlockEntity> core = coreOf(level, id);
+                if (core.isPresent()) {
+                    if (Damage.impactAllowed(id, server.getTickCount())) {
+                        Damage.knock(level, id, i.contactWorld(), n);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || PENDING.isEmpty()) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        if (!BREAK_UPS.isEmpty()) {
+            List<BreakUp> now = new ArrayList<>(BREAK_UPS);
+            BREAK_UPS.clear();
+            now.forEach(CoreService::breakUp);
+        }
+        for (ValkyrienSkiesBridge.Impact i : ValkyrienSkiesBridge.drainImpacts()) {
+            impact(event.getServer(), i);
+        }
+        if (PENDING.isEmpty()) {
             return;
         }
         List<Pending> again = new ArrayList<>();

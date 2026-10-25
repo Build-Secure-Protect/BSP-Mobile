@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile Helm Concepts</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* MB-4 mock-ups for BSP-Mobile: the Mobile Helm block (D36) in three looks, drawn with three.js r128, each shown twice:
+   empty and with a driver standing at it; then three layouts for the core's HELM tab (D42) at 1.5x of 320 x 200 GUI
+   pixels in the in-game palette. The defaults were taken under the owner's blanket go (Look A, Layout 1). */
+:root{ --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --fg:#e8eaf0; --muted:#9aa3b5; --acc:#19d3b0; --board:#0b0d11;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace; color-scheme:dark; }
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; } }
+:root[data-theme="light"]{ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; }
+body{ background:var(--bg); color:var(--fg); font-family:var(--body); margin:0; font-size:14px; line-height:1.5; }
+.wrap{ max-width:1100px; margin:0 auto; padding:28px 16px 56px; display:flex; flex-direction:column; gap:28px; }
+h1{ font-size:clamp(22px,3.4vw,30px); margin:0; } h2{ font-size:18px; margin:0; color:var(--acc); } h3{ font-size:15px; margin:0; }
+.lede{ color:var(--muted); margin:0; max-width:78ch; }
+section{ display:flex; flex-direction:column; gap:14px; }
+.card{ background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.card p{ margin:0; font-size:13px; color:var(--muted); max-width:84ch; }
+.view3d{ width:100%; max-width:900px; aspect-ratio:3/1; background:radial-gradient(ellipse at 50% 80%,#262b36 0%,#0b0d11 70%); border-radius:4px; display:block; }
+.stage{ background:var(--board); border-radius:4px; padding:14px; display:flex; gap:14px; justify-content:flex-start; overflow-x:auto; align-items:flex-start; }
+ol{ margin:0; padding-left:22px; } ol li{ margin-bottom:8px; max-width:84ch; } ol b{ color:var(--fg); }
+.note{ font-size:12px; color:var(--muted); }
+.scr{ --P:#10151C; --S:#0C0E12; --D:#2A2F3A; --M:#9AA3B5; --T:#E6EAF2; --V:#B58CFF; --Q:#19D3B0; --G:#FFD23A; --R:#FF6B5C; --OK:#8FE04A;
+  position:relative; background:var(--P); color:var(--T); font-family:var(--body); font-size:11px; line-height:1.3; box-sizing:border-box; flex:none;
+  display:flex; flex-direction:column; padding:10px 12px; gap:7px; overflow:hidden; width:480px; height:300px; box-shadow:0 0 0 1.5px var(--Q); }
+@media (max-width:700px){ .scr{ zoom:.72; } }
+.hd{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.ttl{ font:600 12px Oswald,var(--body); letter-spacing:.12em; text-transform:uppercase; color:var(--Q); }
+.tabs{ display:flex; gap:4px; } .tab{ width:66px; height:19px; display:grid; place-items:center; background:var(--D); color:var(--M); font:600 9px Oswald,var(--body); letter-spacing:.08em; }
+.tab.on{ background:var(--Q); color:#10151C; } .tab.off{ opacity:.45; }
+.m{ color:var(--M); } .g{ color:var(--G); } .r{ color:var(--R); } .qq{ color:var(--Q); } .sm{ font-size:9px; } .b{ font-weight:600; }
+.box{ background:var(--S); box-shadow:inset 0 0 0 1px var(--D); }
+.keys{ display:flex; gap:6px; align-items:center; }
+.key{ height:24px; padding:0 12px; display:grid; place-items:center; font:700 9.5px Oswald,var(--body); letter-spacing:.08em; text-transform:uppercase; background:var(--D); color:var(--T); box-sizing:border-box; white-space:nowrap; }
+.key.q{ background:var(--Q); color:#10151C; } .key.ghost{ background:transparent; box-shadow:inset 0 0 0 1px var(--D); color:var(--M); } .key.ghost.on{ box-shadow:inset 0 0 0 1px var(--Q); color:var(--Q); }
+.lbl{ font-size:8.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--M); }
+.grow{ flex:1; min-height:0; min-width:0; }
+.chip{ font-size:9px; padding:2px 6px; background:var(--S); box-shadow:inset 0 0 0 1px var(--D); color:var(--T); }
+.chip.q{ box-shadow:inset 0 0 0 1px var(--Q); color:var(--Q); } .chip.g{ box-shadow:inset 0 0 0 1px var(--G); color:var(--G); }
+.big{ font:600 26px Oswald; line-height:1; }
+.rose{ width:84px; height:84px; border-radius:50%; border:1px solid var(--D); position:relative; flex:none; background:radial-gradient(circle,#132a28 0 30%,transparent 31%); }
+.rose i{ position:absolute; left:50%; top:50%; width:2px; height:34px; background:var(--Q); transform-origin:50% 0; transform:translate(-50%,0) rotate(200deg); }
+.rose b{ position:absolute; font-size:8px; color:var(--M); } .rose .n{ top:2px; left:50%; transform:translateX(-50%); color:var(--T); } .rose .s{ bottom:2px; left:50%; transform:translateX(-50%); } .rose .e{ right:4px; top:50%; transform:translateY(-50%); } .rose .w{ left:4px; top:50%; transform:translateY(-50%); }
+.gauge{ height:9px; background:var(--D); position:relative; } .gauge i{ position:absolute; left:0; top:0; bottom:0; background:var(--Q); } .gauge.g i{ background:var(--G); }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>The Mobile Helm: block looks and the HELM tab</h1>
+  <p class="lede">D5 and D6: a helm anyone can reach drives the construct on land and water (flying later); a locked core keeps the helm for those it admits. Three looks for the helm block, each empty and with a driver at it; three layouts for the core's HELM tab. Defaults taken under the blanket go: Look A and Layout 1, open to change on the testing pass.</p>
+</header>
+
+<section>
+  <h2>1. The helm block: three looks</h2>
+  <div class="card">
+    <h3>Look A. Helm Wheel (default)</h3>
+    <p>A waist-high riveted iron pedestal with a ship's wheel rimmed in Tetrium violet, facing one way. The driver stands at it, held in place like a seat, looking where it faces; W and S thrust, A and D turn, sneak steps away. The wheel turns slightly with the input.</p>
+    <canvas class="view3d" id="lookA"></canvas>
+  </div>
+  <div class="card">
+    <h3>Look B. Console</h3>
+    <p>A lectern-shaped iron console with a sloped top, a gold lever and a teal dial that lights while driving. The driver stands behind it. Reads as machinery, fits a base more than a ship.</p>
+    <canvas class="view3d" id="lookB"></canvas>
+  </div>
+  <div class="card">
+    <h3>Look C. Captain's Seat</h3>
+    <p>An iron chair with a violet cushion and two stub levers at the armrests. The driver sits. The most legible "someone is driving" from a distance; the least room-friendly.</p>
+    <canvas class="view3d" id="lookC"></canvas>
+  </div>
+</section>
+
+<section>
+  <h2>2. The HELM tab on the core's screen</h2>
+  <p class="note">Shown with a driver at the helm and the construct under way at 6.2 blocks a second, heading south-west. The ANCHOR key is for those the lock admits (everyone on an unlocked core).</p>
+  <div class="card">
+    <h3>Layout 1. Readouts (default)</h3>
+    <p>Three readouts in a row (speed, heading, driver), the helm count and the anchor state below, and one key: DROP ANCHOR while free, WEIGH ANCHOR while parked. Nothing moves on the screen; the numbers refresh with the view.</p>
+    <div class="stage"><div class="scr">
+      <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab">Core</span><span class="tab">Blocks</span><span class="tab">Upgrade</span><span class="tab on">Helm</span><span class="tab off">Plan</span></span></div>
+      <div class="lbl">Under way · Harbour Lantern</div>
+      <div style="display:flex;gap:10px">
+        <div class="box grow" style="padding:8px 10px"><div class="lbl">Speed</div><div class="big g">6.2</div><div class="m sm">blocks a second · top 8</div></div>
+        <div class="box grow" style="padding:8px 10px"><div class="lbl">Heading</div><div class="big">225°</div><div class="m sm">south-west</div></div>
+        <div class="box grow" style="padding:8px 10px"><div class="lbl">Driver</div><div style="font:600 14px Oswald;margin-top:6px">Mrgregles</div><div class="m sm">at the helm on deck</div></div>
+      </div>
+      <div class="box grow" style="padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+        <div>1 helm aboard · <span class="m">anyone may drive</span></div>
+        <div class="m">Anchor: <span class="qq">weighed</span> · the construct parks itself 3 s after it stops with nobody at a helm.</div>
+        <div class="m sm">A totem aboard would cap the speed at 5 blocks a second.</div>
+      </div>
+      <div class="keys"><span class="key">Drop anchor</span></div>
+    </div></div>
+  </div>
+  <div class="card">
+    <h3>Layout 2. Compass rose</h3>
+    <p>A compass rose on the left with the heading needle, the speed beside it as a big number, the driver and helm count under them. The same key. Prettier, and the rose would need its own renderer.</p>
+    <div class="stage"><div class="scr">
+      <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab">Core</span><span class="tab">Blocks</span><span class="tab">Upgrade</span><span class="tab on">Helm</span><span class="tab off">Plan</span></span></div>
+      <div class="grow" style="display:flex;gap:12px;align-items:flex-start">
+        <div class="rose"><i></i><b class="n">N</b><b class="s">S</b><b class="e">E</b><b class="w">W</b></div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div><span class="big g">6.2</span> <span class="m">blocks/s · heading 225°</span></div>
+          <div>Driver: <span class="b">Mrgregles</span></div>
+          <div class="m">1 helm aboard · anchor weighed</div>
+        </div>
+      </div>
+      <div class="keys"><span class="key">Drop anchor</span></div>
+    </div></div>
+  </div>
+  <div class="card">
+    <h3>Layout 3. Gauge strip</h3>
+    <p>A speed gauge across the full width (gold past the totem cap), a heading line, then the driver and the anchor as two chips. The same key. The most compact; room for the flight readouts later.</p>
+    <div class="stage"><div class="scr">
+      <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab">Core</span><span class="tab">Blocks</span><span class="tab">Upgrade</span><span class="tab on">Helm</span><span class="tab off">Plan</span></span></div>
+      <div class="lbl">Speed · 6.2 of 8 blocks a second</div>
+      <div class="gauge"><i style="width:77%"></i></div>
+      <div class="lbl" style="margin-top:4px">Heading · 225° south-west</div>
+      <div class="gauge"><i style="width:62%;background:var(--M)"></i></div>
+      <div style="display:flex;gap:8px;margin-top:6px"><span class="chip q">Driver · Mrgregles</span><span class="chip">1 helm</span><span class="chip">Anchor weighed</span></div>
+      <div class="grow"></div>
+      <div class="keys"><span class="key">Drop anchor</span></div>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <h2>Decisions taken (defaults, D36 to D43)</h2>
+  <ol>
+    <li><b>The helm block</b>: Look A, the Helm Wheel. Or B the Console. Or C the Captain's Seat.</li>
+    <li><b>The controls</b>: W and S thrust along the helm's facing, A and D turn, sprint doubles the thrust, sneak leaves; no input lets drag stop the construct. Or thrust only, with the turn from the driver's look direction.</li>
+    <li><b>The figures</b>: acceleration 4 blocks/s², top speed 8 blocks/s, turn 30°/s, drag that halves the speed in about 2 s, all in the config; a totem aboard caps the top speed. Or slower, 5 blocks/s top, for a base that creeps.</li>
+    <li><b>Floating</b>: a buoyancy factor (4.0) so a hull of ordinary blocks floats like a boat. Or the engine's natural buoyancy, where most hulls sink.</li>
+    <li><b>Parking</b>: the helm unparks; 3 s after stopping with nobody at a helm the construct parks itself; ANCHOR parks or frees it by hand. Or never parks itself.</li>
+    <li><b>Who may drive</b>: anyone, unless the core is locked, when the lock decides. Or the owner and team always.</li>
+    <li><b>The HELM tab</b>: Layout 1, the readouts. Or 2 the compass rose. Or 3 the gauge strip.</li>
+    <li><b>The recipe</b>: Iron Ingots round a Compass with a Tetrium Ingot on top. Or with a GPS part instead of the compass.</li>
+  </ol>
+</section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  const PAL = { iron:0x5b6270, ironLight:0x8a93a3, steel:0x2a2f3a, teal:0x19d3b0, gold:0xffd23a, violet:0xb58cff, violetDeep:0x6b4ea8, skin:0xc9a07a, shirt:0x2b6fb3, trousers:0x3a3f6b };
+  function mat(c, o){ return new THREE.MeshStandardMaterial(Object.assign({ color:c, roughness:.75, metalness:.25 }, o||{})); }
+  function glow(c, s){ return new THREE.MeshStandardMaterial({ color:c, emissive:c, emissiveIntensity:s, roughness:.4, metalness:0 }); }
+  function box(w,h,d,m,x,y,z){ const g = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m); g.position.set(x||0,y||0,z||0); return g; }
+  function driver(){
+    const g = new THREE.Group();
+    g.add(box(.5,.75,.25, mat(PAL.shirt), 0,.9,0)); g.add(box(.5,.75,.25, mat(PAL.trousers), 0,.15,0)); g.add(box(.5,.5,.5, mat(PAL.skin), 0,1.52,0));
+    g.add(box(.25,.7,.25, mat(PAL.shirt), -.4,.75,-.15)); g.add(box(.25,.7,.25, mat(PAL.shirt), .4,.75,-.15));
+    return g;
+  }
+  function wheel(driving){
+    const g = new THREE.Group();
+    const ped = mat(PAL.iron,{metalness:.5});
+    g.add(box(.5,.75,.5, ped, 0,-.12,0)); g.add(box(.75,.12,.75, mat(PAL.steel), 0,-.44,0));
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(.42,.05,10,32), mat(PAL.violet,{metalness:.5})); rim.position.set(0,.55,0); rim.rotation.y = 0; g.add(rim);
+    for (let i=0;i<4;i++){ const s = box(.86,.05,.05, mat(PAL.ironLight,{metalness:.6}), 0,.55,0); s.rotation.z = i*Math.PI/4; g.add(s); }
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(.1,.1,.1,16), glow(driving?PAL.teal:PAL.steel, driving?.9:.05)); hub.rotation.x = Math.PI/2; hub.position.set(0,.55,0); g.add(hub);
+    g.add(box(.1,.1,.4, ped, 0,.4,-.15));
+    if (driving) { const d = driver(); d.position.set(0,-.5,-.75); g.add(d); }
+    return g;
+  }
+  function consoleLook(driving){
+    const g = new THREE.Group();
+    g.add(box(.9,.7,.5, mat(PAL.iron,{metalness:.5}), 0,-.15,0));
+    const top = box(.95,.1,.6, mat(PAL.steel), 0,.26,-.03); top.rotation.x = -Math.PI/8; g.add(top);
+    const dial = new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,.04,20), glow(driving?PAL.teal:PAL.steel, driving?.9:.05)); dial.rotation.x = Math.PI/2 - Math.PI/8; dial.position.set(-.22,.34,.0); g.add(dial);
+    const lever = box(.05,.4,.05, mat(PAL.gold,{metalness:.7}), .25,.5,.05); lever.rotation.x = driving? -.5 : .2; g.add(lever);
+    if (driving) { const d = driver(); d.position.set(0,-.5,-.8); g.add(d); }
+    return g;
+  }
+  function seat(driving){
+    const g = new THREE.Group();
+    g.add(box(.8,.15,.8, mat(PAL.violetDeep), 0,-.25,0)); g.add(box(.8,.8,.15, mat(PAL.iron,{metalness:.5}), 0,.2,.42));
+    g.add(box(.15,.3,.7, mat(PAL.iron,{metalness:.5}), -.42,-.05,0)); g.add(box(.15,.3,.7, mat(PAL.iron,{metalness:.5}), .42,-.05,0));
+    g.add(box(.05,.25,.05, mat(PAL.gold,{metalness:.7}), -.42,.2,-.2)); g.add(box(.05,.25,.05, mat(PAL.gold,{metalness:.7}), .42,.2,-.2));
+    g.add(box(.3,.4,.3, mat(PAL.steel), 0,-.45,0));
+    if (driving) { const d = driver(); d.position.set(0,-.55,-.1); d.scale.set(1,.8,1); g.add(d); }
+    return g;
+  }
+  function render(canvasId, build){
+    const canvas = document.getElementById(canvasId);
+    const w = canvas.clientWidth || 900, h = canvas.clientHeight || 300;
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2)); renderer.setSize(w, h, false);
+    const scene = new THREE.Scene();
+    const cam = new THREE.OrthographicCamera(-3.3, 3.3, 3.3*h/w, -3.3*h/w, 0.1, 100);
+    cam.position.set(4, 3.2, 5); cam.lookAt(0, 0.3, 0);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(3,6,4); scene.add(sun);
+    const fill = new THREE.DirectionalLight(0x8899bb, 0.35); fill.position.set(-4,2,-3); scene.add(fill);
+    const floorM = mat(0x8a6a3a,{roughness:.9, metalness:0});
+    for (let x=-2;x<=2;x++) for (let z=-1;z<=1;z++) scene.add(box(0.98,0.98,0.98,floorM, x*1.08, -1.02, z*1.08));
+    [false,true].forEach((driving,i)=>{ const b = build(driving); b.position.set((i-0.5)*2.6, 0, 0); b.rotation.y = -Math.PI/8; scene.add(b); });
+    renderer.render(scene, cam);
+  }
+  render('lookA', wheel); render('lookB', consoleLook); render('lookC', seat);
+})();
+</script>
+</body>
+</html>

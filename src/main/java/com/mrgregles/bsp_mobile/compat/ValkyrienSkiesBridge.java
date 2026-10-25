@@ -2,6 +2,9 @@ package com.mrgregles.bsp_mobile.compat;
 
 import com.mrgregles.bsp_mobile.BSPMobile;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerPlayer;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -19,7 +22,13 @@ import org.joml.Quaterniondc;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 import org.joml.primitives.AABBic;
+import org.valkyrienskies.core.api.ships.LoadedServerShip;
+import org.valkyrienskies.core.api.ships.PhysShip;
 import org.valkyrienskies.core.api.ships.ServerShip;
+import org.valkyrienskies.core.api.world.PhysLevel;
+import org.valkyrienskies.mod.api.SeatedControllingPlayer;
+import org.valkyrienskies.mod.common.ValkyrienSkiesMod;
+import org.valkyrienskies.mod.common.entity.ShipMountingEntity;
 import org.valkyrienskies.core.api.ships.Ship;
 import org.valkyrienskies.core.api.ships.properties.ShipTransform;
 import org.valkyrienskies.core.api.world.ServerShipWorld;
@@ -64,6 +73,359 @@ public final class ValkyrienSkiesBridge {
         return ModList.get().isLoaded(MOD_ID);
     }
 
+    // ------------------------------------------------------------------ driving (MB-4, D37 to D41)
+
+    /** The driver's keys as the engine reports them for a construct's seat. */
+    public record Inputs(float forward, float left, float up, boolean sprint) {
+        public static final Inputs NONE = new Inputs(0, 0, 0, false);
+    }
+
+    /** The commands the helms set, read on the physics thread by {@link Control}; one per construct. */
+    private static final java.util.concurrent.ConcurrentHashMap<Long, com.mrgregles.bsp_mobile.construct.Drive.Command> COMMANDS = new java.util.concurrent.ConcurrentHashMap<>();
+    /** What the hook last did per construct, for admin tools and tests. */
+    private static final java.util.concurrent.ConcurrentHashMap<Long, DriveStats> STATS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** The physics hook's last tick for a construct: how many ticks it has run, the force it applied, the speed it saw. */
+    public record DriveStats(long ticks, double force, double speed, boolean sleeping, boolean parked) {
+        public static final DriveStats NONE = new DriveStats(0, 0, 0, false, false);
+    }
+
+    public static DriveStats driveStats(long id) {
+        return STATS.getOrDefault(id, DriveStats.NONE);
+    }
+
+    /**
+     * The physics hook: on every physics tick of the engine (its global event, which needs no per-ship attachment) it
+     * looks up each driven construct's physics body, reads the helm's latest command, applies the drive maths as a
+     * force and a torque in the construct's own frame, and sets the buoyancy. Physics thread: it touches only the
+     * concurrent maps.
+     */
+    /** How often the engine's physics tick has reached this mod, and how often a ship lookup threw (admin tools and tests). */
+    private static final java.util.concurrent.atomic.AtomicLong PHYS_TICKS = new java.util.concurrent.atomic.AtomicLong(), LOOKUP_ERRORS = new java.util.concurrent.atomic.AtomicLong();
+
+    public static long physTicksSeen() {
+        return PHYS_TICKS.get();
+    }
+
+    public static long lookupErrors() {
+        return LOOKUP_ERRORS.get();
+    }
+
+    private static void onPhysTick(PhysLevel level) {
+        PHYS_TICKS.incrementAndGet();
+        for (var e : COMMANDS.entrySet()) {
+            PhysShip ship;
+            try {
+                ship = level.getShipById(e.getKey());
+            } catch (RuntimeException ex) {
+                LOOKUP_ERRORS.incrementAndGet();
+                continue; // another dimension's physics level
+            }
+            if (ship != null) {
+                Control.physTick(ship, e.getValue());
+            }
+        }
+    }
+
+    static final class Control {
+        private Control() {}
+
+        static void physTick(PhysShip ship, com.mrgregles.bsp_mobile.construct.Drive.Command cmd) {
+            DriveStats last = STATS.getOrDefault(ship.getId(), DriveStats.NONE);
+            ship.setBuoyantFactor(cmd.buoyancy());
+            ship.setDoFluidDrag(true);
+            if (ship.isStatic()) {
+                STATS.put(ship.getId(), new DriveStats(last.ticks() + 1, 0, 0, ship.isSleeping(), true));
+                return;
+            }
+            ShipTransform t = ship.getTransform();
+            Vector3d vShip = t.transformDirectionNoScalingFromWorldToShip(ship.getVelocity(), new Vector3d());
+            Vector3d omegaShip = t.transformDirectionNoScalingFromWorldToShip(ship.getOmega(), new Vector3d());
+            double inertiaY = ship.getMomentOfInertia().m11();
+            com.mrgregles.bsp_mobile.construct.Drive.Forces f = com.mrgregles.bsp_mobile.construct.Drive.forces(ship.getMass(), inertiaY, vShip.x, ship.getVelocity().y(), vShip.z, omegaShip.y, cmd);
+            if (f.fx() != 0 || f.fz() != 0) {
+                ship.applyRotDependentForce(new Vector3d(f.fx(), 0, f.fz()));
+            }
+            if (f.fy() != 0) {
+                ship.applyInvariantForce(new Vector3d(0, f.fy(), 0)); // lift works against gravity in the world, whatever the tilt
+            }
+            if (f.torqueY() != 0) {
+                ship.applyRotDependentTorque(new Vector3d(0, f.torqueY(), 0));
+            }
+            STATS.put(ship.getId(), new DriveStats(last.ticks() + 1, Math.sqrt(f.fx() * f.fx() + f.fz() * f.fz()), ship.getVelocity().length(), ship.isSleeping(), false));
+        }
+    }
+
+    // ------------------------------------------------------------------ impacts (MB-5, D44)
+
+    /** A collision the engine reported: the two bodies (0 for the ground), the hardest contact's world position and relative speed. */
+    public record Impact(long shipA, long shipB, Vec3 contactWorld, double speed) {}
+
+    private static final java.util.concurrent.ConcurrentLinkedQueue<Impact> IMPACTS = new java.util.concurrent.ConcurrentLinkedQueue<>();
+    /** Constructs this mod is taking apart right now (a release or a removal): their blocks vanishing is not damage. */
+    private static final java.util.Set<Long> BUSY = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    public static boolean isBusy(long id) {
+        return BUSY.contains(id);
+    }
+
+    /** The impacts since the last call (the server thread drains them every tick). */
+    public static List<Impact> drainImpacts() {
+        List<Impact> out = new ArrayList<>();
+        Impact i;
+        while ((i = IMPACTS.poll()) != null) {
+            out.add(i);
+        }
+        return out;
+    }
+
+    private static void onCollision(org.valkyrienskies.core.api.events.CollisionEvent event) {
+        org.valkyrienskies.core.api.physics.ContactPoint hardest = null;
+        double speed = 0;
+        for (org.valkyrienskies.core.api.physics.ContactPoint p : event.getContactPoints()) {
+            double s = p.getVelocity().length();
+            if (hardest == null || s > speed) {
+                hardest = p;
+                speed = s;
+            }
+        }
+        if (hardest == null) {
+            return;
+        }
+        Vector3dc at = hardest.getPosition();
+        IMPACTS.add(new Impact(event.getShipIdA(), event.getShipIdB(), new Vec3(at.x(), at.y(), at.z()), speed));
+    }
+
+    /** A world position turned into the construct's own space; empty when the construct is gone. */
+    public static Optional<Vec3> toShip(MinecraftServer server, long id, Vec3 world) {
+        if (!isPresent()) {
+            return Optional.empty();
+        }
+        try {
+            ServerShip ship = serverShip(server, id);
+            return ship == null ? Optional.empty() : Optional.of(ValkyrienSkies.positionToShip(ship, world));
+        } catch (LinkageError | RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
+    /** Hooks the drive into the engine's physics tick and the impacts into its collision event (once, at common setup). */
+    public static void registerPhysics() {
+        if (!isPresent()) {
+            return;
+        }
+        try {
+            ValkyrienSkies.api().getPhysTickEvent().on(event -> onPhysTick(event.getWorld()));
+            ValkyrienSkies.api().getCollisionStartEvent().on(ValkyrienSkiesBridge::onCollision);
+            BSPMobile.LOGGER.info("BSP-Mobile: hooked into Valkyrien Skies' physics tick");
+        } catch (LinkageError | RuntimeException e) {
+            BSPMobile.LOGGER.error("BSP-Mobile: Valkyrien Skies refused the physics hook; constructs will not drive", e);
+        }
+    }
+
+    @Nullable
+    private static LoadedServerShip loadedShip(MinecraftServer server, long id) {
+        return ValkyrienSkies.getShipWorld(server).getLoadedShips().getById(id);
+    }
+
+    /** True once the engine has the construct loaded (its physics object exists); a fresh construct takes a few ticks. */
+    public static boolean isLoaded(MinecraftServer server, long id) {
+        if (!isPresent()) {
+            return false;
+        }
+        try {
+            return loadedShip(server, id) != null;
+        } catch (LinkageError | RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Puts the player at a helm: a seat entity in the shipyard at {@code standAt}, the player riding it as its
+     * controller, and the construct's seat attachment set so the engine routes the player's movement keys to it.
+     * Returns the seat entity's id.
+     */
+    public static Optional<UUID> mount(ServerLevel level, long id, BlockPos standAt, Direction facing, ServerPlayer player) {
+        if (!isPresent()) {
+            return Optional.empty();
+        }
+        try {
+            LoadedServerShip ship = loadedShip(level.getServer(), id);
+            if (ship == null) {
+                BSPMobile.LOGGER.warn("BSP-Mobile: construct {} is not loaded; nobody can take its helm", id);
+                return Optional.empty();
+            }
+            ShipMountingEntity seat = new ShipMountingEntity(ValkyrienSkiesMod.SHIP_MOUNTING_ENTITY_TYPE, level);
+            Vec3 at = Vec3.atBottomCenterOf(standAt);
+            seat.setPos(at.x, at.y, at.z);
+            seat.setYRot(facing.toYRot());
+            seat.setController(true);
+            if (!level.addFreshEntity(seat)) {
+                BSPMobile.LOGGER.warn("BSP-Mobile: the seat at {} on construct {} could not be added", standAt, id);
+                return Optional.empty();
+            }
+            if (!player.startRiding(seat, true)) {
+                BSPMobile.LOGGER.warn("BSP-Mobile: {} could not sit at the helm of construct {}", player.getGameProfile().getName(), id);
+                seat.discard();
+                return Optional.empty();
+            }
+            ship.setAttachment(SeatedControllingPlayer.class, new SeatedControllingPlayer(facing));
+            return Optional.of(seat.getUUID());
+        } catch (LinkageError | RuntimeException e) {
+            BSPMobile.LOGGER.error("BSP-Mobile: Valkyrien Skies could not seat a driver on construct {}", id, e);
+            return Optional.empty();
+        }
+    }
+
+    /** The player riding the seat entity, if the seat still exists and is ridden. */
+    public static Optional<ServerPlayer> driverOf(ServerLevel level, @Nullable UUID seat) {
+        if (seat == null) {
+            return Optional.empty();
+        }
+        net.minecraft.world.entity.Entity e = level.getEntity(seat);
+        return e != null && e.getFirstPassenger() instanceof ServerPlayer p ? Optional.of(p) : Optional.empty();
+    }
+
+    /** Removes a seat entity (its rider dismounts) and the construct's seat attachment. */
+    public static void removeSeat(ServerLevel level, long id, @Nullable UUID seat) {
+        if (!isPresent()) {
+            return;
+        }
+        try {
+            if (seat != null) {
+                net.minecraft.world.entity.Entity e = level.getEntity(seat);
+                if (e != null) {
+                    e.ejectPassengers();
+                    e.discard();
+                }
+            }
+            LoadedServerShip ship = loadedShip(level.getServer(), id);
+            if (ship != null) {
+                ship.removeAttachment(SeatedControllingPlayer.class);
+            }
+        } catch (LinkageError | RuntimeException ignored) {
+            // the construct is gone
+        }
+    }
+
+    /** The driver's keys for the construct, as the engine has them. */
+    public static Inputs inputs(MinecraftServer server, long id) {
+        if (!isPresent()) {
+            return Inputs.NONE;
+        }
+        try {
+            LoadedServerShip ship = loadedShip(server, id);
+            SeatedControllingPlayer s = ship == null ? null : ship.getAttachment(SeatedControllingPlayer.class);
+            return s == null ? Inputs.NONE : new Inputs(s.getForwardImpulse(), s.getLeftImpulse(), s.getUpImpulse(), s.getSprintOn());
+        } catch (LinkageError | RuntimeException e) {
+            return Inputs.NONE;
+        }
+    }
+
+    /** Sets the driver's keys on the construct's seat (an autopilot, admin tools and tests; a real driver's keys come from the engine). */
+    public static boolean setInputs(MinecraftServer server, long id, @Nullable Direction facing, Inputs in) {
+        if (!isPresent()) {
+            return false;
+        }
+        try {
+            LoadedServerShip ship = loadedShip(server, id);
+            if (ship == null) {
+                return false;
+            }
+            SeatedControllingPlayer s = ship.getAttachment(SeatedControllingPlayer.class);
+            if (s == null) {
+                if (facing == null) {
+                    return true; // nothing to clear
+                }
+                s = new SeatedControllingPlayer(facing);
+                ship.setAttachment(SeatedControllingPlayer.class, s);
+            }
+            s.setForwardImpulse(in.forward());
+            s.setLeftImpulse(in.left());
+            s.setUpImpulse(in.up());
+            s.setSprintOn(in.sprint());
+            return true;
+        } catch (LinkageError | RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** Gives the construct this tick's command (and the control hook, when it has none yet). */
+    public static boolean drive(ServerLevel level, long id, com.mrgregles.bsp_mobile.construct.Drive.Command cmd) {
+        if (!isPresent()) {
+            return false;
+        }
+        try {
+            LoadedServerShip ship = loadedShip(level.getServer(), id);
+            if (ship == null) {
+                COMMANDS.remove(id);
+                return false;
+            }
+            COMMANDS.put(id, cmd);
+            return true;
+        } catch (LinkageError | RuntimeException e) {
+            BSPMobile.LOGGER.error("BSP-Mobile: Valkyrien Skies refused the drive command for construct {}", id, e);
+            return false;
+        }
+    }
+
+    /** Stops driving the construct: no more forces from this mod (the engine's own physics go on). */
+    public static void stopDriving(long id) {
+        COMMANDS.remove(id);
+        STATS.remove(id);
+    }
+
+    /**
+     * Gives the construct its wings (D52): one wing per position, lift and drag power in the engine's units; positions
+     * no longer in the list lose their wing. The engine's aerodynamics do the rest. Needs the construct loaded.
+     */
+    public static boolean setWings(ServerLevel level, long id, java.util.Collection<BlockPos> wings, java.util.Collection<BlockPos> gone, double lift, double drag) {
+        if (!isPresent()) {
+            return false;
+        }
+        try {
+            LoadedServerShip ship = loadedShip(level.getServer(), id);
+            if (ship == null) {
+                return false;
+            }
+            org.valkyrienskies.core.api.ships.WingManager wm = ship.getWingManager();
+            int group = wm.getFirstWingGroupId();
+            if (group < 0) {
+                group = wm.createWingGroup(true);
+            }
+            org.valkyrienskies.core.api.ships.Wing wing = new org.valkyrienskies.core.api.ships.Wing(new Vector3d(0, 1, 0), lift, drag, null, 0.0);
+            org.valkyrienskies.core.api.ships.Wing none = new org.valkyrienskies.core.api.ships.Wing(new Vector3d(0, 1, 0), 0.0, 0.0, null, 0.0);
+            for (BlockPos p : gone) {
+                wm.setWing(group, p.getX(), p.getY(), p.getZ(), none);
+            }
+            for (BlockPos p : wings) {
+                wm.setWing(group, p.getX(), p.getY(), p.getZ(), wing);
+            }
+            return true;
+        } catch (LinkageError | RuntimeException e) {
+            BSPMobile.LOGGER.error("BSP-Mobile: Valkyrien Skies refused the wings of construct {}", id, e);
+            return false;
+        }
+    }
+
+    /** The helm's facing turned into the world, for the heading; empty when the construct is gone. */
+    public static Optional<Vec3> forwardInWorld(MinecraftServer server, long id, Direction facing) {
+        if (!isPresent()) {
+            return Optional.empty();
+        }
+        try {
+            ServerShip ship = serverShip(server, id);
+            if (ship == null) {
+                return Optional.empty();
+            }
+            Vector3d f = ship.getTransform().transformDirectionNoScalingFromShipToWorld(
+                    new Vector3d(facing.getStepX(), facing.getStepY(), facing.getStepZ()), new Vector3d());
+            return Optional.of(new Vec3(f.x, f.y, f.z));
+        } catch (LinkageError | RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
     public static String version() {
         return ModList.get().getModContainerById(MOD_ID)
                 .map(c -> c.getModInfo().getVersion().toString()).orElse("not loaded");
@@ -85,6 +447,25 @@ public final class ValkyrienSkiesBridge {
             BSPMobile.LOGGER.error("BSP-Mobile: Valkyrien Skies could not assemble {} blocks", blocks.size(), e);
             return Optional.empty();
         }
+    }
+
+    /** The ids of every engine ship whose chunks lie in this level (constructs or not). */
+    public static List<Long> constructIds(ServerLevel level) {
+        List<Long> out = new ArrayList<>();
+        if (!isPresent()) {
+            return out;
+        }
+        try {
+            String dim = ValkyrienSkies.getDimensionId(level);
+            for (ServerShip ship : ValkyrienSkies.getShipWorld(level.getServer()).getAllShips()) {
+                if (dim.equals(ship.getChunkClaimDimension())) {
+                    out.add(ship.getId());
+                }
+            }
+        } catch (LinkageError | RuntimeException e) {
+            BSPMobile.LOGGER.error("BSP-Mobile: Valkyrien Skies could not list its ships", e);
+        }
+        return out;
     }
 
     /** The construct with this id, if it still exists. */
@@ -161,6 +542,15 @@ public final class ValkyrienSkiesBridge {
      * without it they stay in the shipyard as plain world blocks. Returns false when Valkyrien Skies refused.
      */
     public static boolean remove(ServerLevel level, long id, boolean removeBlocks) {
+        BUSY.add(id);
+        try {
+            return removeNow(level, id, removeBlocks);
+        } finally {
+            BUSY.remove(id);
+        }
+    }
+
+    private static boolean removeNow(ServerLevel level, long id, boolean removeBlocks) {
         if (!isPresent()) {
             return false;
         }
@@ -182,6 +572,15 @@ public final class ValkyrienSkiesBridge {
      * entities and their contents with them, and removes the construct. Nothing moves when a target cell is not free.
      */
     public static Release release(ServerLevel level, long id) {
+        BUSY.add(id);
+        try {
+            return releaseNow(level, id);
+        } finally {
+            BUSY.remove(id);
+        }
+    }
+
+    private static Release releaseNow(ServerLevel level, long id) {
         if (!isPresent()) {
             return Release.failed("engine");
         }

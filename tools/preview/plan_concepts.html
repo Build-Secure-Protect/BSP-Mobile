@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan Tab Concepts</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* MB-9 mock-ups for BSP-Mobile: the core's PLAN tab (D63 to D67), three layouts at 1.5x of 320 x 200 GUI pixels in the
+   in-game palette. Shown with a plan of four waypoints under way to the second. Default taken: Layout 1. */
+:root{ --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --fg:#e8eaf0; --muted:#9aa3b5; --acc:#19d3b0; --board:#0b0d11;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace; color-scheme:dark; }
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; } }
+:root[data-theme="light"]{ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; }
+body{ background:var(--bg); color:var(--fg); font-family:var(--body); margin:0; font-size:14px; line-height:1.5; }
+.wrap{ max-width:1100px; margin:0 auto; padding:28px 16px 56px; display:flex; flex-direction:column; gap:28px; }
+h1{ font-size:clamp(22px,3.4vw,30px); margin:0; } h2{ font-size:18px; margin:0; color:var(--acc); } h3{ font-size:15px; margin:0; }
+.lede{ color:var(--muted); margin:0; max-width:78ch; }
+.card{ background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.card p{ margin:0; font-size:13px; color:var(--muted); max-width:84ch; }
+.stage{ background:var(--board); border-radius:4px; padding:14px; display:flex; gap:14px; justify-content:flex-start; overflow-x:auto; align-items:flex-start; }
+ol{ margin:0; padding-left:22px; } ol li{ margin-bottom:8px; max-width:84ch; } ol b{ color:var(--fg); }
+.scr{ --P:#10151C; --S:#0C0E12; --D:#2A2F3A; --M:#9AA3B5; --T:#E6EAF2; --V:#B58CFF; --Q:#19D3B0; --G:#FFD23A; --R:#FF6B5C; --OK:#8FE04A;
+  position:relative; background:var(--P); color:var(--T); font-family:var(--body); font-size:11px; line-height:1.3; box-sizing:border-box; flex:none;
+  display:flex; flex-direction:column; padding:10px 12px; gap:7px; overflow:hidden; width:480px; height:300px; box-shadow:0 0 0 1.5px var(--Q); }
+@media (max-width:700px){ .scr{ zoom:.72; } }
+.hd{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.ttl{ font:600 12px Oswald,var(--body); letter-spacing:.12em; text-transform:uppercase; color:var(--Q); }
+.tabs{ display:flex; gap:4px; } .tab{ width:66px; height:19px; display:grid; place-items:center; background:var(--D); color:var(--M); font:600 9px Oswald,var(--body); letter-spacing:.08em; }
+.tab.on{ background:var(--Q); color:#10151C; }
+.m{ color:var(--M); } .g{ color:var(--G); } .qq{ color:var(--Q); } .sm{ font-size:9px; } .b{ font-weight:600; }
+.box{ background:var(--S); box-shadow:inset 0 0 0 1px var(--D); }
+.keys{ display:flex; gap:6px; align-items:center; }
+.key{ height:24px; padding:0 12px; display:grid; place-items:center; font:700 9.5px Oswald,var(--body); letter-spacing:.08em; text-transform:uppercase; background:var(--D); color:var(--T); box-sizing:border-box; white-space:nowrap; }
+.key.q{ background:var(--Q); color:#10151C; } .key.red{ background:#4a1f1b; color:#ffb3ad; box-shadow:inset 0 0 0 1px var(--R); } .key.ghost{ background:transparent; box-shadow:inset 0 0 0 1px var(--D); color:var(--M); }
+.gap{ width:14px; flex:none; }
+.inp{ height:17px; background:var(--S); box-shadow:inset 0 0 0 1px var(--D); color:var(--T); font-size:9.5px; padding:0 5px; box-sizing:border-box; display:flex; align-items:center; }
+.lbl{ font-size:8.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--M); }
+.grow{ flex:1; min-height:0; min-width:0; }
+.row{ height:18px; display:flex; align-items:center; gap:6px; padding:0 6px; box-sizing:border-box; white-space:nowrap; }
+.row + .row{ border-top:1px solid #1c222c; } .row.cur{ background:#132a28; box-shadow:inset 2px 0 0 var(--Q); } .row.done{ color:var(--M); }
+.row .n{ margin-left:auto; font:600 10px var(--mono); color:var(--M); }
+.strip{ display:flex; align-items:center; gap:0; padding:10px 6px; }
+.dot{ width:14px; height:14px; border-radius:50%; background:var(--D); display:grid; place-items:center; font:600 8px var(--mono); color:var(--T); flex:none; }
+.dot.done{ background:var(--Q); color:#10151C; } .dot.cur{ box-shadow:0 0 0 2px var(--G); }
+.seg{ flex:1; height:3px; background:var(--D); } .seg.done{ background:var(--Q); }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>The PLAN tab: three layouts</h1>
+  <p class="lede">D63 to D67: a flight plan of waypoints kept on the core, a cruise height, GO and STOP. The autopilot drives the helm the way a driver would, so every driving rule holds. Shown under way to waypoint 2 of 4 at a cruise height of 30. Default taken: Layout 1.</p>
+</header>
+
+<section class="card">
+  <h3>Layout 1. The list (default)</h3>
+  <p>The waypoints as rows (number, position, distance), the next one highlighted and the passed ones dimmed; the cruise height box beside the header; keys: ADD HERE, REMOVE (the last), then GO or STOP.</p>
+  <div class="stage"><div class="scr">
+    <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab">Core</span><span class="tab">Blocks</span><span class="tab">Upgrade</span><span class="tab">Helm</span><span class="tab on">Plan</span></span></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="lbl">Flight plan · under way to 2 of 4</span><span style="margin-left:auto" class="lbl">Cruise height</span><span class="inp" style="width:44px">30</span></div>
+    <div class="box grow">
+      <div class="row done"><span>1</span><span>120, 64, -340</span><span class="n">passed</span></div>
+      <div class="row cur"><span>2</span><span>260, 64, -300</span><span class="n">142 blocks</span></div>
+      <div class="row"><span>3</span><span>410, 70, -180</span><span class="n">…</span></div>
+      <div class="row"><span>4</span><span>455, 66, -20</span><span class="n">landing</span></div>
+    </div>
+    <div class="m sm">A waypoint is reached within 4 blocks. At the last one the construct stops and parks itself; the core gives a redstone pulse.</div>
+    <div class="keys"><span class="key">Add here</span><span class="key ghost">Remove</span><span class="gap"></span><span class="key red">Stop</span></div>
+  </div></div>
+</section>
+
+<section class="card">
+  <h3>Layout 2. The route strip</h3>
+  <p>A strip of numbered dots joined by segments that fill as the plan is flown, the next waypoint's position and distance under it, the height box and the keys. Reads progress at a glance; shows no positions for the others.</p>
+  <div class="stage"><div class="scr">
+    <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab">Core</span><span class="tab">Blocks</span><span class="tab">Upgrade</span><span class="tab">Helm</span><span class="tab on">Plan</span></span></div>
+    <div class="lbl">Flight plan · under way</div>
+    <div class="box strip"><span class="dot done">1</span><span class="seg done"></span><span class="dot cur">2</span><span class="seg"></span><span class="dot">3</span><span class="seg"></span><span class="dot">4</span></div>
+    <div class="box" style="padding:8px 10px"><div>Next: <span class="b">2 · 260, 64, -300</span> · <span class="g">142 blocks</span> · heading 92°</div><div class="m">Cruise height 30 above the ground · 4 waypoints</div></div>
+    <div class="grow"></div>
+    <div class="keys"><span class="key">Add here</span><span class="key ghost">Remove</span><span class="lbl" style="margin-left:8px">Cruise</span><span class="inp" style="width:44px">30</span><span class="gap"></span><span class="key red">Stop</span></div>
+  </div></div>
+</section>
+
+<section class="card">
+  <h3>Layout 3. Two columns</h3>
+  <p>The list on the left, a status column on the right (next waypoint, distance, heading, height against cruise, what stops the plan), the keys below. The most information; the least room for long plans.</p>
+  <div class="stage"><div class="scr">
+    <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab">Core</span><span class="tab">Blocks</span><span class="tab">Upgrade</span><span class="tab">Helm</span><span class="tab on">Plan</span></span></div>
+    <div class="grow" style="display:flex;gap:8px">
+      <div class="box grow">
+        <div class="row done"><span>1</span><span>120, 64, -340</span></div>
+        <div class="row cur"><span>2</span><span>260, 64, -300</span></div>
+        <div class="row"><span>3</span><span>410, 70, -180</span></div>
+        <div class="row"><span>4</span><span>455, 66, -20</span></div>
+      </div>
+      <div class="box" style="width:170px;padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+        <div class="lbl">Under way</div><div>Next <span class="b">2</span> · <span class="g">142 blocks</span></div><div class="m">Heading 92° · height 94 (cruise 30 above ground)</div><div class="m sm">Stops when a driver takes a helm, on STOP, or in a closed region.</div>
+      </div>
+    </div>
+    <div class="keys"><span class="key">Add here</span><span class="key ghost">Remove</span><span class="lbl" style="margin-left:8px">Cruise</span><span class="inp" style="width:44px">30</span><span class="gap"></span><span class="key red">Stop</span></div>
+  </div></div>
+</section>
+
+<section class="card">
+  <h2>Decisions taken (defaults, D63 to D67)</h2>
+  <ol>
+    <li><b>Where the plan lives</b>: on the core's PLAN tab, up to 16 waypoints. Or a Flight Plan block of its own.</li>
+    <li><b>Making the plan</b>: ADD HERE takes the viewer's position; REMOVE drops the last; the cruise height is typed. Or a map to click on.</li>
+    <li><b>How it steers</b>: it drives the helm's inputs like a driver, so every rule holds; a waypoint counts within 4 blocks; the last one parks the construct. Or direct forces that ignore the helm.</li>
+    <li><b>Signals</b>: a redstone pulse from the core on arrival; no helm, no plan. Or no signal.</li>
+    <li><b>The tab</b>: Layout 1. Or 2 or 3.</li>
+  </ol>
+</section>
+</div>
+</body>
+</html>

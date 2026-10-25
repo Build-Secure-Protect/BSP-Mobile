@@ -67,7 +67,10 @@ public class MobileCoreBlock extends BaseEntityBlock {
         if (level.isClientSide) {
             return null;
         }
-        return createTickerHelper(type, ModBlocks.MOBILE_CORE_ENTITY.get(), (lvl, pos, st, be) -> LockService.tick((ServerLevel) lvl, be));
+        return createTickerHelper(type, ModBlocks.MOBILE_CORE_ENTITY.get(), (lvl, pos, st, be) -> {
+            LockService.tick((ServerLevel) lvl, be);
+            PlanService.tick((ServerLevel) lvl, be);
+        });
     }
 
     /** Right-click: a Mobile Core Lock in hand locks the core (D29); otherwise the screen opens. */
@@ -103,6 +106,26 @@ public class MobileCoreBlock extends BaseEntityBlock {
             }
         }
         return super.getDestroyProgress(state, player, level, pos);
+    }
+
+    /** A core destroyed while its construct is assembled breaks the construct up (D45); a release or removal by this mod does not count. */
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
+        if (!state.is(newState.getBlock()) && level instanceof ServerLevel server && level.getBlockEntity(pos) instanceof MobileCoreBlockEntity be) {
+            CoreService.coreDestroyed(server, be);
+        }
+        super.onRemove(state, level, pos, newState, moved);
+    }
+
+    /** The core is a redstone source while its arrival pulse runs (D66). */
+    @Override
+    public boolean isSignalSource(BlockState state) {
+        return true;
+    }
+
+    @Override
+    public int getSignal(BlockState state, BlockGetter level, BlockPos pos, net.minecraft.core.Direction direction) {
+        return level.getBlockEntity(pos) instanceof MobileCoreBlockEntity be ? be.signal() : 0;
     }
 
     /** A mined locked core drops its lock beside the core item. */

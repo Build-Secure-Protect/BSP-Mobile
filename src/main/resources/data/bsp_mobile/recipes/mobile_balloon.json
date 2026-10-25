@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "TWT",
+    "WPW",
+    "TWT"
+  ],
+  "key": {
+    "T": {
+      "item": "bsp_core:tetrium_ingot"
+    },
+    "W": {
+      "item": "minecraft:white_wool"
+    },
+    "P": {
+      "item": "minecraft:phantom_membrane"
+    }
+  },
+  "result": {
+    "item": "bsp_mobile:mobile_balloon",
+    "count": 1
+  }
+}

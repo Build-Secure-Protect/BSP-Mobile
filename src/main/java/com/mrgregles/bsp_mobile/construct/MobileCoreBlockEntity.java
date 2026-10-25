@@ -34,6 +34,12 @@ public class MobileCoreBlockEntity extends BlockEntity {
     private String thiefName = "";
     private int stealTotal, stealLeft, stealGrace;
     private boolean stealOutside;
+    // the flight plan (D63): waypoints in world coordinates, the cruise height above the ground, the next waypoint
+    private final java.util.List<BlockPos> waypoints = new java.util.ArrayList<>();
+    private int cruise;
+    private int planNext;
+    private boolean planRunning;
+    private int pulseTicks;
 
     public MobileCoreBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlocks.MOBILE_CORE_ENTITY.get(), pos, state);
@@ -168,6 +174,68 @@ public class MobileCoreBlockEntity extends BlockEntity {
         changed();
     }
 
+    // ------------------------------------------------------------------ the plan
+
+    public java.util.List<BlockPos> waypoints() {
+        return java.util.Collections.unmodifiableList(waypoints);
+    }
+
+    public int cruise() {
+        return cruise;
+    }
+
+    public int planNext() {
+        return planNext;
+    }
+
+    public boolean planRunning() {
+        return planRunning;
+    }
+
+    public void addWaypoint(BlockPos pos) {
+        waypoints.add(pos.immutable());
+        changed();
+    }
+
+    public void removeLastWaypoint() {
+        if (!waypoints.isEmpty()) {
+            waypoints.remove(waypoints.size() - 1);
+            if (planNext > waypoints.size()) {
+                planNext = waypoints.size();
+            }
+            changed();
+        }
+    }
+
+    public void setCruise(int cruise) {
+        this.cruise = cruise;
+        changed();
+    }
+
+    public void setPlanRunning(boolean running, int next) {
+        this.planRunning = running;
+        this.planNext = next;
+        changed();
+    }
+
+    /** The redstone pulse on arrival (D66): 15 for {@code ticks}. */
+    public void pulse(int ticks) {
+        this.pulseTicks = ticks;
+        if (level != null) {
+            level.updateNeighborsAt(worldPosition, getBlockState().getBlock());
+        }
+    }
+
+    public int signal() {
+        return pulseTicks > 0 ? 15 : 0;
+    }
+
+    void tickPulse() {
+        if (pulseTicks > 0 && --pulseTicks == 0 && level != null) {
+            level.updateNeighborsAt(worldPosition, getBlockState().getBlock());
+        }
+    }
+
     private void changed() {
         setChanged();
         if (level != null && !level.isClientSide) {
@@ -194,6 +262,14 @@ public class MobileCoreBlockEntity extends BlockEntity {
             tag.putInt("StealGrace", stealGrace);
             tag.putBoolean("StealOutside", stealOutside);
         }
+        long[] wps = new long[waypoints.size()];
+        for (int i = 0; i < wps.length; i++) {
+            wps[i] = waypoints.get(i).asLong();
+        }
+        tag.putLongArray("Plan", wps);
+        tag.putInt("Cruise", cruise);
+        tag.putInt("PlanNext", planNext);
+        tag.putBoolean("PlanRunning", planRunning);
     }
 
     @Override
@@ -211,6 +287,13 @@ public class MobileCoreBlockEntity extends BlockEntity {
         stealLeft = tag.getInt("StealLeft");
         stealGrace = tag.getInt("StealGrace");
         stealOutside = tag.getBoolean("StealOutside");
+        waypoints.clear();
+        for (long l : tag.getLongArray("Plan")) {
+            waypoints.add(BlockPos.of(l));
+        }
+        cruise = tag.getInt("Cruise");
+        planNext = tag.getInt("PlanNext");
+        planRunning = tag.getBoolean("PlanRunning");
     }
 
     @Override

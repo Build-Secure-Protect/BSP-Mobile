@@ -4,7 +4,10 @@ import com.mrgregles.bsp_mobile.BSPMobile;
 import com.mrgregles.bsp_mobile.construct.MobileCoreBlock;
 import com.mrgregles.bsp_mobile.construct.MobileCoreBlockEntity;
 import com.mrgregles.bsp_mobile.construct.MobileCoreItem;
+import com.mrgregles.bsp_mobile.construct.HelmBlock;
+import com.mrgregles.bsp_mobile.construct.HelmBlockEntity;
 import com.mrgregles.bsp_mobile.construct.LockItem;
+import com.mrgregles.bsp_mobile.construct.PartBlock;
 import com.mrgregles.bsp_mobile.construct.PartItem;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
@@ -34,6 +37,26 @@ public final class ModBlocks {
     public static final RegistryObject<BlockEntityType<MobileCoreBlockEntity>> MOBILE_CORE_ENTITY = BLOCK_ENTITIES.register("mobile_core",
             () -> BlockEntityType.Builder.of(MobileCoreBlockEntity::new, MOBILE_CORE.get()).build(null));
 
+    // the Mobile Helm (D36 to D43): drives the construct it stands on
+    public static final RegistryObject<HelmBlock> MOBILE_HELM = BLOCKS.register("mobile_helm", HelmBlock::new);
+    public static final RegistryObject<Item> MOBILE_HELM_ITEM = ITEMS.register("mobile_helm", () -> new HelmBlock.HelmItem(MOBILE_HELM.get(), new Item.Properties()));
+    @SuppressWarnings("DataFlowIssue")
+    public static final RegistryObject<BlockEntityType<HelmBlockEntity>> MOBILE_HELM_ENTITY = BLOCK_ENTITIES.register("mobile_helm",
+            () -> BlockEntityType.Builder.of(HelmBlockEntity::new, MOBILE_HELM.get()).build(null));
+
+    // the parts (D52): counted aboard by number (the list first: the fields below fill it)
+    private static final java.util.List<RegistryObject<Item>> PART_ITEMS = new java.util.ArrayList<>();
+    public static final RegistryObject<PartBlock> MOBILE_ENGINE = part("mobile_engine", PartBlock.Kind.ENGINE);
+    public static final RegistryObject<PartBlock> MOBILE_FLOATER = part("mobile_floater", PartBlock.Kind.FLOATER);
+    public static final RegistryObject<PartBlock> MOBILE_BALLOON = part("mobile_balloon", PartBlock.Kind.BALLOON);
+    public static final RegistryObject<PartBlock> MOBILE_WING = part("mobile_wing", PartBlock.Kind.WING);
+    public static final RegistryObject<PartBlock> MOBILE_JET_ENGINE = part("mobile_jet_engine", PartBlock.Kind.JET);
+    private static RegistryObject<PartBlock> part(String name, PartBlock.Kind kind) {
+        RegistryObject<PartBlock> block = BLOCKS.register(name, () -> new PartBlock(kind));
+        PART_ITEMS.add(ITEMS.register(name, () -> new PartBlock.PartBlockItem(block.get(), name, new Item.Properties())));
+        return block;
+    }
+
     private ModBlocks() {}
 
     public static void register(IEventBus modBus) {
@@ -46,6 +69,8 @@ public final class ModBlocks {
     private static void onCreativeTabs(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
             event.accept(MOBILE_CORE_ITEM);
+            event.accept(MOBILE_HELM_ITEM);
+            PART_ITEMS.forEach(event::accept);
             event.accept(MOBILE_CORE_PROCESSOR);
             event.accept(MOBILE_CORE_GPS);
             event.accept(MOBILE_CORE_GYROSCOPE);

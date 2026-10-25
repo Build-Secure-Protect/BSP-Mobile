@@ -1,0 +1,127 @@
+{
+  "parent": "minecraft:block/block",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "pedestal": "bsp_mobile:block/mobile_helm_pedestal",
+    "wheel": "bsp_mobile:block/mobile_helm_wheel",
+    "particle": "bsp_mobile:block/mobile_helm_pedestal"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        0,
+        2
+      ],
+      "to": [
+        14,
+        2,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#pedestal"
+        },
+        "south": {
+          "texture": "#pedestal"
+        },
+        "east": {
+          "texture": "#pedestal"
+        },
+        "west": {
+          "texture": "#pedestal"
+        },
+        "up": {
+          "texture": "#pedestal"
+        },
+        "down": {
+          "texture": "#pedestal"
+        }
+      }
+    },
+    {
+      "from": [
+        4,
+        2,
+        4
+      ],
+      "to": [
+        12,
+        12,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "#pedestal"
+        },
+        "south": {
+          "texture": "#pedestal"
+        },
+        "east": {
+          "texture": "#pedestal"
+        },
+        "west": {
+          "texture": "#pedestal"
+        },
+        "up": {
+          "texture": "#pedestal"
+        },
+        "down": {
+          "texture": "#pedestal"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        10,
+        1
+      ],
+      "to": [
+        9,
+        12,
+        8
+      ],
+      "faces": {
+        "north": {
+          "texture": "#pedestal"
+        },
+        "south": {
+          "texture": "#pedestal"
+        },
+        "east": {
+          "texture": "#pedestal"
+        },
+        "west": {
+          "texture": "#pedestal"
+        },
+        "up": {
+          "texture": "#pedestal"
+        },
+        "down": {
+          "texture": "#pedestal"
+        }
+      }
+    },
+    {
+      "from": [
+        1,
+        4,
+        1
+      ],
+      "to": [
+        15,
+        18,
+        2
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wheel"
+        },
+        "south": {
+          "texture": "#wheel"
+        }
+      }
+    }
+  ]
+}

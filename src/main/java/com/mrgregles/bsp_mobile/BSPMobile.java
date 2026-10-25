@@ -9,6 +9,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 
@@ -28,7 +29,12 @@ public class BSPMobile {
         context.registerConfig(ModConfig.Type.SERVER, MobileConfig.SPEC);
         ModBlocks.register(context.getModEventBus());
         MobileNetwork.register();
+        context.getModEventBus().addListener((FMLCommonSetupEvent e) -> e.enqueueWork(() -> {
+            ValkyrienSkiesBridge.registerPhysics();
+            com.mrgregles.bsp_mobile.compat.RegionGuard.registerFlag();
+        }));
         MinecraftForge.EVENT_BUS.addListener(CoreService::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_mobile.command.MobileCommands::register);
         MinecraftForge.EVENT_BUS.addListener((ServerStartedEvent e) -> {
             if (ValkyrienSkiesBridge.isPresent()) {
                 LOGGER.info("BSP-Mobile: constructs run on Valkyrien Skies {}", ValkyrienSkiesBridge.version());

@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "bsp_mobile:block/mobile_jet_engine"
+    }
+  }
+}

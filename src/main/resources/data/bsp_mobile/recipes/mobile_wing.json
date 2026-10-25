@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "TTT",
+    "III"
+  ],
+  "key": {
+    "T": {
+      "item": "bsp_core:tetrium_ingot"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "item": "bsp_mobile:mobile_wing",
+    "count": 2
+  }
+}

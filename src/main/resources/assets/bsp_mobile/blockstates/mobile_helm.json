@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "bsp_mobile:block/mobile_helm"
+    },
+    "facing=east": {
+      "model": "bsp_mobile:block/mobile_helm",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "bsp_mobile:block/mobile_helm",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "bsp_mobile:block/mobile_helm",
+      "y": 270
+    }
+  }
+}
