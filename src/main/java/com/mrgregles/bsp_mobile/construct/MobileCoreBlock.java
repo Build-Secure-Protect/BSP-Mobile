@@ -1,5 +1,6 @@
 package com.mrgregles.bsp_mobile.construct;
 
+import com.mrgregles.bsp_mobile.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -14,6 +15,8 @@ import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
@@ -24,8 +27,8 @@ import org.jetbrains.annotations.Nullable;
  * The Mobile Core (D13, R2): the one block that makes a base move. The same from every side; as hard to mine as an iron
  * block; pistons cannot move it; it drops itself with the construct's name and tier on the item. Right-clicking opens
  * its screen. While its construct is assembled the core cannot be mined: release the construct first (the damage task
- * decides what a destroyed core does). The cage and heart are the block model; the ring is drawn by the client's
- * renderer.
+ * decides what a destroyed core does). A locked core (D27 to D31) is mined only by those it admits, and drops its lock
+ * with it. The cage and heart are the block model; the ring is drawn by the client's renderer.
  */
 public class MobileCoreBlock extends BaseEntityBlock {
     public MobileCoreBlock() {
@@ -58,24 +61,57 @@ public class MobileCoreBlock extends BaseEntityBlock {
         }
     }
 
+    @Nullable
+    @Override
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
+        if (level.isClientSide) {
+            return null;
+        }
+        return createTickerHelper(type, ModBlocks.MOBILE_CORE_ENTITY.get(), (lvl, pos, st, be) -> LockService.tick((ServerLevel) lvl, be));
+    }
+
+    /** Right-click: a Mobile Core Lock in hand locks the core (D29); otherwise the screen opens. */
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }
         if (player instanceof ServerPlayer sp && level instanceof ServerLevel server) {
+            ItemStack held = player.getItemInHand(hand);
+            if (held.is(ModBlocks.MOBILE_CORE_LOCK.get()) && LockService.lock(server, pos, sp, held).ok()) {
+                return InteractionResult.CONSUME;
+            }
             CoreService.open(sp, server, pos);
         }
         return InteractionResult.CONSUME;
     }
 
-    /** An assembled core cannot be mined: the construct must be released first. */
+    /** An assembled core cannot be mined (release the construct first); a locked one only by those it admits. */
     @Override
     public float getDestroyProgress(BlockState state, Player player, BlockGetter level, BlockPos pos) {
-        if (level.getBlockEntity(pos) instanceof MobileCoreBlockEntity be && be.isAssembled()) {
-            return 0.0F;
+        if (level.getBlockEntity(pos) instanceof MobileCoreBlockEntity be) {
+            if (be.isAssembled()) {
+                return 0.0F;
+            }
+            if (be.locked()) {
+                boolean admitted = player instanceof ServerPlayer sp && level instanceof ServerLevel server
+                        ? Access.admitted(server, be, sp)
+                        : be.owner() == null || be.owner().equals(player.getUUID()); // the client knows the owner, not the team
+                if (!admitted) {
+                    return 0.0F;
+                }
+            }
         }
         return super.getDestroyProgress(state, player, level, pos);
+    }
+
+    /** A mined locked core drops its lock beside the core item. */
+    @Override
+    public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof MobileCoreBlockEntity be && be.locked()) {
+            popResource(level, pos, new ItemStack(ModBlocks.MOBILE_CORE_LOCK.get()));
+        }
+        super.playerWillDestroy(level, pos, state, player);
     }
 
     @Override

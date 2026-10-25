@@ -29,7 +29,9 @@ import java.util.Locale;
  * the state, the allowance and tier, what was left out, the Aboard box, ASSEMBLE or RELEASE (release needs a second
  * click within three seconds) and SHOW OUTLINE. BLOCKS: the ledger of kinds with counts, refused kinds first in red.
  * UPGRADE: the tier ladder with each step's price, the coins the viewer carries, and BUY (a second click within three
- * seconds confirms; the server takes the coins with change). The server decides; this screen only shows and asks.
+ * seconds confirms; the server takes the coins with change). A lock (D32, Layout A): a LOCKED chip beside the state chip,
+ * UNLOCK or STEAL at the right end of the key row, the actions greyed "locked" for those the lock does not admit, and a
+ * thin red bar with the thief's name while a steal runs. The server decides; this screen only shows and asks.
  */
 public class CoreScreen extends Screen {
     static final int W = 320, H = 200;
@@ -38,11 +40,13 @@ public class CoreScreen extends Screen {
     private static final long SURE_MS = 3000;
     private static final int REFRESH_TICKS = 40, SAVE_DELAY_TICKS = 20;
     private static final int CORE = 0, BLOCKS = 1, UPGRADE = 2;
+    private static final int SURE_RELEASE = 1, SURE_LOCK = 2, SURE_BUY = 3;
 
     private CoreViewPacket view;
     private int tab = CORE;
     private boolean outlineOn = true;
     private long sureUntil;
+    private int sureKey;
     private int refreshTicks = REFRESH_TICKS;
     private int listScroll;
     private final List<Ui.Hit> hits = new ArrayList<>();
@@ -84,6 +88,9 @@ public class CoreScreen extends Screen {
             nameBox.setValue(next.name());
             typed = next.name();
         }
+        if (nameBox != null) {
+            nameBox.setEditable(next.admitted());
+        }
         if (!next.note().isEmpty()) {
             note = next.note();
             noteUntil = System.currentTimeMillis() + SURE_MS;
@@ -98,6 +105,7 @@ public class CoreScreen extends Screen {
         nameBox.setBordered(false);
         nameBox.setTextColor(Ui.TEXT);
         nameBox.setValue(typed);
+        nameBox.setEditable(view.admitted());
         nameBox.setResponder(s -> {
             if (!s.equals(typed)) {
                 typed = s;
@@ -178,6 +186,28 @@ public class CoreScreen extends Screen {
         sureUntil = 0;
     }
 
+    /** Arms a key's SURE? step for three seconds. */
+    private void arm(int which) {
+        sureKey = which;
+        sureUntil = System.currentTimeMillis() + SURE_MS;
+    }
+
+    private boolean armed(int which) {
+        return sureKey == which && System.currentTimeMillis() < sureUntil;
+    }
+
+    /** m:ss from ticks. */
+    private static String clock(int ticks) {
+        int s = Math.max(0, ticks) / 20;
+        return String.format(Locale.ROOT, "%d:%02d", s / 60, s % 60);
+    }
+
+    /** A greyed action key with the "locked" hint beside it (D30). */
+    private void lockedKey(GuiGraphics g, String label, int kx, int ky) {
+        Ui.key(g, font, label, kx, ky, 64, KEY_H, Ui.DIM, 0xFF5A6270, SMALL);
+        Ui.text(g, font, Tr.t("locked_hint"), kx + 68, ky + 4, Ui.VIOLET, TINY);
+    }
+
     /** The server's answer to the last action, for a few seconds above the keys. */
     private void drawNote(GuiGraphics g, int x, int ky) {
         if (System.currentTimeMillis() < noteUntil && Tr.has("note." + note)) {
@@ -197,17 +227,27 @@ public class CoreScreen extends Screen {
         String chip = switch (state) {
             case NOT_ASSEMBLED -> Tr.t("state.not_assembled");
             case PARKED -> Tr.t("state.parked");
-            case MOVING -> Tr.t("state.moving", String.format(Locale.ROOT, "%.1f", view.speed()));
+            case MOVING -> view.locked() ? Tr.t("state.moving_short") : Tr.t("state.moving", String.format(Locale.ROOT, "%.1f", view.speed()));
         };
         int chipColour = switch (state) {
             case NOT_ASSEMBLED -> Ui.MUTED;
             case PARKED -> Ui.TEAL;
             case MOVING -> Ui.GOLD;
         };
+        int right = x + W - PAD;
+        if (view.locked()) {
+            // the LOCKED chip (D32): violet, red while a steal runs
+            int lockColour = view.stealLeft() > 0 ? Ui.BAD : Ui.VIOLET;
+            String lockText = Ui.fit(font, Tr.t("state.locked", view.ownerName().isEmpty() ? "?" : view.ownerName()), 84, SMALL);
+            int lw = Ui.width(font, lockText, SMALL) + 8;
+            Ui.frame(g, right - lw, y + 21, lw, 13, lockColour);
+            Ui.text(g, font, lockText, right - lw + 4, y + 24, lockColour, SMALL);
+            right -= lw + 4;
+        }
         String chipText = Ui.fit(font, chip, 130, SMALL);
         int cw = Ui.width(font, chipText, SMALL) + 8;
-        Ui.frame(g, x + W - PAD - cw, y + 21, cw, 13, chipColour);
-        Ui.text(g, font, chipText, x + W - PAD - cw + 4, y + 24, chipColour, SMALL);
+        Ui.frame(g, right - cw, y + 21, cw, 13, chipColour);
+        Ui.text(g, font, chipText, right - cw + 4, y + 24, chipColour, SMALL);
         // the allowance box
         int bx = x + PAD, by = y + 40, bw = 194, bh = 108;
         Ui.inset(g, bx, by, bw, bh);
@@ -256,22 +296,40 @@ public class CoreScreen extends Screen {
         Ui.inset(g, ax, by, aw, bh);
         Ui.text(g, font, Tr.t("aboard").toUpperCase(Locale.ROOT), ax + 6, by + 6, Ui.MUTED, TINY);
         int ay = by + 15;
-        for (String s : new String[]{Tr.t("aboard.totems", view.totems()), Tr.t("aboard.chests", view.chests(), view.machines()),
-                Tr.t("owner", view.ownerName().isEmpty() ? "?" : view.ownerName()), Tr.t("helm.open")}) {
-            Ui.text(g, font, Ui.fit(font, s, aw - 12, SMALL), ax + 6, ay, ay == by + 15 || ay == by + 24 ? Ui.TEXT : Ui.MUTED, SMALL);
+        String[] aboardLines = {Tr.t("aboard.totems", view.totems()), Tr.t("aboard.chests", view.chests(), view.machines()),
+                Tr.t("owner", view.ownerName().isEmpty() ? "?" : view.ownerName()), Tr.t("helm.open")};
+        for (int i = 0; i < aboardLines.length; i++) {
+            Ui.text(g, font, Ui.fit(font, aboardLines[i], aw - 12, SMALL), ax + 6, ay, i < 2 ? Ui.TEXT : Ui.MUTED, SMALL);
             ay += 9;
+        }
+        if (view.totems() > 0) {
+            // D34: a totem aboard caps the construct (enforced by the driving task)
+            for (String line : Ui.wrap(font, Tr.t("aboard.totem_capped"), aw - 12, TINY)) {
+                Ui.text(g, font, line, ax + 6, ay + 1, Ui.GOLD, TINY);
+                ay += 7;
+            }
         }
         // the keys
         int ky = y + H - PAD - KEY_H;
         int kx = x + PAD;
-        boolean sure = System.currentTimeMillis() < sureUntil;
+        boolean admitted = view.admitted();
+        int mainW = 64;
         switch (state) {
             case NOT_ASSEMBLED -> {
-                Ui.key(g, font, Tr.t("key.assemble"), kx, ky, 64, KEY_H, Ui.TEAL, Ui.INK, SMALL);
-                hits.add(new Ui.Hit(kx, ky, 64, KEY_H, () -> send(CoreActionPacket.Action.ASSEMBLE, "")));
+                if (admitted) {
+                    Ui.key(g, font, Tr.t("key.assemble"), kx, ky, 64, KEY_H, Ui.TEAL, Ui.INK, SMALL);
+                    hits.add(new Ui.Hit(kx, ky, 64, KEY_H, () -> send(CoreActionPacket.Action.ASSEMBLE, "")));
+                } else {
+                    lockedKey(g, Tr.t("key.assemble"), kx, ky);
+                    mainW = 104;
+                }
             }
             case PARKED -> {
-                if (sure) {
+                if (!admitted) {
+                    lockedKey(g, Tr.t("key.release"), kx, ky);
+                    mainW = 104;
+                } else if (armed(SURE_RELEASE)) {
+                    mainW = 80;
                     Ui.key(g, font, Tr.t("key.sure"), kx, ky, 80, KEY_H, Ui.SURE_BG, Ui.SURE_FG, SMALL);
                     Ui.frame(g, kx, ky, 80, KEY_H, Ui.SURE_LINE);
                     hits.add(new Ui.Hit(kx, ky, 80, KEY_H, () -> {
@@ -280,17 +338,64 @@ public class CoreScreen extends Screen {
                     }));
                 } else {
                     Ui.key(g, font, Tr.t("key.release"), kx, ky, 64, KEY_H, Ui.DIM, Ui.TEXT, SMALL);
-                    hits.add(new Ui.Hit(kx, ky, 64, KEY_H, () -> sureUntil = System.currentTimeMillis() + SURE_MS));
+                    hits.add(new Ui.Hit(kx, ky, 64, KEY_H, () -> arm(SURE_RELEASE)));
                 }
             }
             case MOVING -> {
                 Ui.key(g, font, Tr.t("key.release"), kx, ky, 64, KEY_H, Ui.DIM, 0xFF5A6270, SMALL);
-                Ui.text(g, font, Tr.t("stop_first"), kx + 68, ky + 4, Ui.MUTED, TINY);
+                Ui.text(g, font, Tr.t(admitted ? "stop_first" : "locked_hint"), kx + 68, ky + 4, admitted ? Ui.MUTED : Ui.VIOLET, TINY);
+                mainW = 104;
             }
         }
-        int ox = kx + (sure ? 80 : 64) + 14 + (state == ConstructState.MOVING ? 40 : 0);
+        int ox = kx + mainW + 14;
         Ui.ghostKey(g, font, Tr.t("key.outline"), ox, ky, 72, KEY_H, outlineOn ? Ui.TEAL : Ui.MUTED, SMALL);
         hits.add(new Ui.Hit(ox, ky, 72, KEY_H, () -> outlineOn = !outlineOn));
+        // the lock's own key at the right end (D29 UNLOCK for those admitted, D31 STEAL for anyone else)
+        if (view.locked()) {
+            int lw = 64, lx = x + W - PAD - lw;
+            if (view.stealLeft() > 0) {
+                Ui.key(g, font, Tr.t("key.stealing"), lx, ky, lw, KEY_H, Ui.SURE_BG, Ui.SURE_FG, SMALL);
+                Ui.frame(g, lx, ky, lw, KEY_H, Ui.SURE_LINE);
+            } else if (admitted) {
+                if (armed(SURE_LOCK)) {
+                    lw = 84;
+                    lx = x + W - PAD - lw;
+                    Ui.key(g, font, Tr.t("key.sure_unlock"), lx, ky, lw, KEY_H, Ui.SURE_BG, Ui.SURE_FG, SMALL);
+                    Ui.frame(g, lx, ky, lw, KEY_H, Ui.SURE_LINE);
+                    hits.add(new Ui.Hit(lx, ky, lw, KEY_H, () -> {
+                        sureUntil = 0;
+                        send(CoreActionPacket.Action.UNLOCK, "");
+                    }));
+                } else {
+                    Ui.ghostKey(g, font, Tr.t("key.unlock"), lx, ky, lw, KEY_H, Ui.VIOLET, SMALL);
+                    hits.add(new Ui.Hit(lx, ky, lw, KEY_H, () -> arm(SURE_LOCK)));
+                }
+            } else {
+                if (armed(SURE_LOCK)) {
+                    lw = 84;
+                    lx = x + W - PAD - lw;
+                    Ui.key(g, font, Tr.t("key.sure_steal"), lx, ky, lw, KEY_H, Ui.SURE_BG, Ui.SURE_FG, SMALL);
+                    Ui.frame(g, lx, ky, lw, KEY_H, Ui.SURE_LINE);
+                    hits.add(new Ui.Hit(lx, ky, lw, KEY_H, () -> {
+                        sureUntil = 0;
+                        send(CoreActionPacket.Action.STEAL, "");
+                    }));
+                } else {
+                    Ui.key(g, font, Tr.t("key.steal"), lx, ky, lw, KEY_H, Ui.DIM, Ui.BAD, SMALL);
+                    hits.add(new Ui.Hit(lx, ky, lw, KEY_H, () -> arm(SURE_LOCK)));
+                }
+            }
+        }
+        // the steal's progress, seen by everyone with the screen open
+        if (view.locked() && view.stealLeft() > 0 && view.stealTotal() > 0) {
+            int sw = W - 2 * PAD;
+            g.fill(x + PAD, ky - 23, x + PAD + sw, ky - 20, Ui.DIM);
+            float done = 1f - view.stealLeft() / (float) view.stealTotal();
+            g.fill(x + PAD, ky - 23, x + PAD + Math.round(sw * done), ky - 20, Ui.BAD);
+            String left = clock(view.stealLeft());
+            String line = view.stealOutside() ? Tr.t("steal.paused", view.thiefName(), left) : Tr.t("steal.line", view.thiefName(), left);
+            Ui.text(g, font, Ui.fit(font, line, sw, TINY), x + PAD, ky - 18, Ui.BAD, TINY);
+        }
         drawNote(g, x, ky);
     }
 
@@ -374,12 +479,13 @@ public class CoreScreen extends Screen {
         // the coins the viewer carries, and what the next step needs
         boolean top = view.tier() >= tiers;
         Prices.Coins next = top ? Prices.Coins.NONE : price(view.tier() + 1);
-        boolean enough = view.coins() && !next.isNone() && view.worth() >= next.value();
+        boolean enough = view.admitted() && view.coins() && !next.isNone() && view.worth() >= next.value();
         int fy = ly + tiers * rowH + 8;
         String carried = view.carried().isEmpty() ? Tr.t("upgrade.carried_none") : Tr.t("upgrade.carried", carriedText(view.carried()));
         Ui.text(g, font, Ui.fit(font, carried, lw, SMALL), lx, fy, enough ? Ui.TEAL : Ui.TEXT, SMALL);
         fy += 10;
-        String hint = !view.coins() ? Tr.t("upgrade.no_coins") : top ? Tr.t("upgrade.at_top") : enough ? Tr.t("upgrade.enough") : Tr.t("upgrade.short");
+        String hint = !view.admitted() ? Tr.t("upgrade.locked") : !view.coins() ? Tr.t("upgrade.no_coins") : top ? Tr.t("upgrade.at_top")
+                : enough ? Tr.t("upgrade.enough") : Tr.t("upgrade.short");
         for (String line : Ui.wrap(font, hint, lw, TINY)) {
             Ui.text(g, font, line, lx, fy, Ui.MUTED, TINY);
             fy += 7;
@@ -391,7 +497,7 @@ public class CoreScreen extends Screen {
             Ui.key(g, font, Tr.t("upgrade.top"), lx, ky, 100, KEY_H, Ui.DIM, 0xFF5A6270, SMALL);
         } else if (!enough) {
             Ui.key(g, font, Tr.t("upgrade.key", roman), lx, ky, 100, KEY_H, Ui.DIM, 0xFF5A6270, SMALL);
-        } else if (System.currentTimeMillis() < sureUntil) {
+        } else if (armed(SURE_BUY)) {
             Ui.key(g, font, Tr.t("upgrade.sure", roman), lx, ky, 120, KEY_H, Ui.SURE_BG, Ui.SURE_FG, SMALL);
             Ui.frame(g, lx, ky, 120, KEY_H, Ui.SURE_LINE);
             hits.add(new Ui.Hit(lx, ky, 120, KEY_H, () -> {
@@ -400,7 +506,7 @@ public class CoreScreen extends Screen {
             }));
         } else {
             Ui.key(g, font, Tr.t("upgrade.key", roman), lx, ky, 100, KEY_H, Ui.TEAL, Ui.INK, SMALL);
-            hits.add(new Ui.Hit(lx, ky, 100, KEY_H, () -> sureUntil = System.currentTimeMillis() + SURE_MS));
+            hits.add(new Ui.Hit(lx, ky, 100, KEY_H, () -> arm(SURE_BUY)));
         }
         drawNote(g, x, ky);
     }

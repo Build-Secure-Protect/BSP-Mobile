@@ -1,10 +1,12 @@
 package com.mrgregles.bsp_mobile.compat;
 
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.fml.ModList;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * The one class that talks to BSP-Core, through its {@code api} package only. BSP-Core is a required mod (D21), but
@@ -26,6 +28,44 @@ public final class BspCore {
         }
         try {
             return Impl.isTotem(state);
+        } catch (LinkageError | RuntimeException e) {
+            return false;
+        }
+    }
+
+    // ------------------------------------------------------------------ teams and admins (the lock, D30 and D33)
+
+    /** True when the two players are on one BSP-Core team (a player is not their own teammate). */
+    public static boolean sameTeam(MinecraftServer server, UUID a, UUID b) {
+        if (!isPresent() || a == null || b == null) {
+            return false;
+        }
+        try {
+            return Impl.sameTeam(server, a, b);
+        } catch (LinkageError | RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** The player's teammates, empty without a team or BSP-Core. */
+    public static List<UUID> teammates(MinecraftServer server, UUID player) {
+        if (!isPresent() || player == null) {
+            return List.of();
+        }
+        try {
+            return List.copyOf(Impl.teammates(server, player));
+        } catch (LinkageError | RuntimeException e) {
+            return List.of();
+        }
+    }
+
+    /** True for a BSP-Core admin. */
+    public static boolean isAdmin(Player player) {
+        if (!isPresent()) {
+            return false;
+        }
+        try {
+            return Impl.isAdmin(player);
         } catch (LinkageError | RuntimeException e) {
             return false;
         }
@@ -109,6 +149,18 @@ public final class BspCore {
     private static final class Impl {
         static boolean isTotem(BlockState state) {
             return com.mrgregles.bsp_core.api.BspTotems.isTotem(state);
+        }
+
+        static boolean sameTeam(MinecraftServer server, UUID a, UUID b) {
+            return com.mrgregles.bsp_core.api.BspTeams.sameTeam(server, a, b);
+        }
+
+        static List<UUID> teammates(MinecraftServer server, UUID player) {
+            return com.mrgregles.bsp_core.api.BspTeams.teammates(server, player);
+        }
+
+        static boolean isAdmin(Player player) {
+            return com.mrgregles.bsp_core.api.BspPlayers.isAdmin(player);
         }
 
         static List<String> coinTiers() {

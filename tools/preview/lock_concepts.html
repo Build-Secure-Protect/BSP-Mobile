@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Core Lock Concepts</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* MB-3 mock-ups for BSP-Mobile: the Mobile Core Lock (D23: an upgrade item that binds a core to its owner; an enemy takes
+   a locked core by a timed steal). Three icon styles for the item, drawn pixel by pixel at 16 x 16 and shown at 8x and at
+   inventory size; three layouts for how the CORE tab shows a lock and a running steal, at 1.5x of 320 x 200 GUI pixels in
+   the in-game palette. Sample names and times. Nothing here is in the mod yet. */
+:root{ --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --fg:#e8eaf0; --muted:#9aa3b5; --acc:#19d3b0; --board:#0b0d11;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace; color-scheme:dark; }
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; } }
+:root[data-theme="light"]{ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; }
+body{ background:var(--bg); color:var(--fg); font-family:var(--body); margin:0; font-size:14px; line-height:1.5; }
+.wrap{ max-width:1100px; margin:0 auto; padding:28px 16px 56px; display:flex; flex-direction:column; gap:28px; }
+h1{ font-size:clamp(22px,3.4vw,30px); margin:0; } h2{ font-size:18px; margin:0; color:var(--acc); } h3{ font-size:15px; margin:0; }
+.lede{ color:var(--muted); margin:0; max-width:78ch; }
+section{ display:flex; flex-direction:column; gap:14px; }
+.card{ background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px; display:flex; flex-direction:column; gap:12px; }
+.card p{ margin:0; font-size:13px; color:var(--muted); max-width:84ch; }
+.faces{ display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start; }
+.face{ display:flex; flex-direction:column; gap:6px; align-items:center; font-size:12px; color:var(--muted); }
+.face canvas{ width:128px; height:128px; image-rendering:pixelated; background:repeating-conic-gradient(#3a3f4b 0 25%,#262b36 0 50%) 0/16px 16px; border:1px solid var(--line); }
+.face b{ color:var(--fg); font-weight:500; }
+.inv{ display:inline-flex; gap:0; background:#c6c6c6; padding:6px; border:3px solid; border-color:#fff #555 #555 #fff; }
+.inv .slot{ width:32px; height:32px; background:#8b8b8b; box-shadow:inset 2px 2px 0 #373737, inset -2px -2px 0 #fff; display:grid; place-items:center; }
+.inv canvas{ width:32px; height:32px; image-rendering:pixelated; display:block; }
+.invwrap{ display:flex; gap:14px; flex-wrap:wrap; align-items:center; font-size:12px; color:var(--muted); }
+.stage{ background:var(--board); border-radius:4px; padding:14px; display:flex; gap:14px; justify-content:flex-start; overflow-x:auto; align-items:flex-start; }
+ol{ margin:0; padding-left:22px; } ol li{ margin-bottom:8px; max-width:84ch; } ol b{ color:var(--fg); }
+.note{ font-size:12px; color:var(--muted); }
+
+/* ---------- the in-game palette (as core_refined.html) ---------- */
+.scr{ --P:#10151C; --S:#0C0E12; --D:#2A2F3A; --M:#9AA3B5; --T:#E6EAF2; --V:#B58CFF; --Q:#19D3B0; --G:#FFD23A; --R:#FF6B5C; --OK:#8FE04A;
+  position:relative; background:var(--P); color:var(--T); font-family:var(--body); font-size:11px; line-height:1.3; box-sizing:border-box; flex:none;
+  display:flex; flex-direction:column; padding:10px 12px; gap:7px; overflow:hidden; width:480px; height:300px; box-shadow:0 0 0 1.5px var(--Q); }
+.hd{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.ttl{ font:600 12px Oswald,var(--body); letter-spacing:.12em; text-transform:uppercase; color:var(--Q); }
+.tabs{ display:flex; gap:4px; } .tab{ width:66px; height:19px; display:grid; place-items:center; background:var(--D); color:var(--M); font:600 9px Oswald,var(--body); letter-spacing:.08em; }
+.tab.on{ background:var(--Q); color:#10151C; } .tab.off{ opacity:.45; }
+.m{ color:var(--M); } .g{ color:var(--G); } .r{ color:var(--R); } .ok{ color:var(--OK); } .qq{ color:var(--Q); } .vv{ color:var(--V); } .sm{ font-size:9px; } .b{ font-weight:600; }
+.box{ background:var(--S); box-shadow:inset 0 0 0 1px var(--D); }
+.keys{ display:flex; gap:6px; align-items:center; }
+.key{ height:24px; padding:0 12px; display:grid; place-items:center; font:700 9.5px Oswald,var(--body); letter-spacing:.08em; text-transform:uppercase; background:var(--D); color:var(--T); box-sizing:border-box; white-space:nowrap; }
+.key.q{ background:var(--Q); color:#10151C; } .key.g{ background:var(--G); color:#10151C; }
+.key.lock{ opacity:.4; } .key.sure{ background:#3a2a2a; color:#ff8f86; box-shadow:inset 0 0 0 1px #D63B2F; } .key.ghost{ background:transparent; box-shadow:inset 0 0 0 1px var(--D); color:var(--M); } .key.ghost.on{ box-shadow:inset 0 0 0 1px var(--Q); color:var(--Q); }
+.key.red{ background:#4a1f1b; color:#ffb3ad; box-shadow:inset 0 0 0 1px var(--R); }
+.gap{ width:14px; flex:none; }
+.inp{ height:17px; background:var(--S); box-shadow:inset 0 0 0 1px var(--D); color:var(--T); font-size:9.5px; padding:0 5px; box-sizing:border-box; display:flex; align-items:center; white-space:nowrap; overflow:hidden; }
+.lbl{ font-size:8.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--M); }
+.grow{ flex:1; min-height:0; min-width:0; }
+.chip{ font-size:9px; padding:2px 6px; background:var(--S); box-shadow:inset 0 0 0 1px var(--D); color:var(--T); }
+.chip.q{ box-shadow:inset 0 0 0 1px var(--Q); color:var(--Q); } .chip.v{ box-shadow:inset 0 0 0 1px var(--V); color:var(--V); } .chip.r{ box-shadow:inset 0 0 0 1px var(--R); color:var(--R); }
+.bar{ height:7px; background:var(--D); position:relative; } .bar i{ position:absolute; left:0; top:0; bottom:0; background:var(--Q); } .bar.r i{ background:var(--R); }
+.banner{ display:flex; align-items:center; gap:8px; padding:4px 8px; background:#2a1a1a; box-shadow:inset 0 0 0 1px var(--R); font-size:9.5px; }
+.banner.v{ background:#1f1830; box-shadow:inset 0 0 0 1px var(--V); }
+.ring{ width:34px; height:34px; border-radius:50%; background:conic-gradient(var(--R) 0 49%, var(--D) 49% 100%); display:grid; place-items:center; flex:none; }
+@media (max-width:700px){ .scr{ zoom:.72; } }
+.ring i{ width:24px; height:24px; border-radius:50%; background:var(--S); display:grid; place-items:center; font:600 8px var(--mono); color:var(--R); font-style:normal; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>The Mobile Core Lock: icon and screen mock-ups</h1>
+  <p class="lede">D23: a lock upgrade binds a Mobile Core to its owner, and an enemy takes a locked core by a timed steal in the order of a totem steal, after which the core and its construct are theirs. Three icon styles for the lock item (in the Style B family of the parts), then three ways the CORE tab can show a lock and a running steal. Sample names and times; the decisions are at the end.</p>
+</header>
+
+<section>
+  <h2>1. The lock item: three icons</h2>
+  <div class="card">
+    <h3>Three objects, drawn the way the three parts are</h3>
+    <p><b>Padlock</b>: an iron shackle over a Tetrium-violet body with a teal keyhole, the plainest reading of "lock". <b>Clamp</b>: two Magnatite brackets closed on a gold bar with a teal light, a thing that bolts onto the core. <b>Seal</b>: a violet disc with the core's teal cross and four iron rivets, a seal pressed onto the core.</p>
+    <div class="faces">
+      <div class="face"><canvas data-icon="padlock" width="16" height="16"></canvas><span><b>Padlock</b></span></div>
+      <div class="face"><canvas data-icon="clamp" width="16" height="16"></canvas><span><b>Clamp</b></span></div>
+      <div class="face"><canvas data-icon="seal" width="16" height="16"></canvas><span><b>Seal</b></span></div>
+    </div>
+    <div class="invwrap"><span class="inv" id="row"></span><span>at 2x, beside the three parts and the Mobile Core</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>2. The CORE tab with a lock on, as the thief sees it mid-steal</h2>
+  <p class="note">Every layout keeps MB-1's CORE tab (name, state, allowance, Aboard, the keys) and adds the lock. Shown: an enemy named Rook stealing "Harbour Lantern" from its owner Mrgregles, 2 minutes 31 seconds of 5 left. The owner sees the same, with UNLOCK where STEAL is. A player who is neither sees the lock and no key for it.</p>
+
+  <div class="card">
+    <h3>Layout A. A chip and a key</h3>
+    <p>The lightest touch: a violet LOCKED chip beside the state chip naming the owner; STEAL joins the key row (SURE? on the second click); while a steal runs a thin red bar sits under the keys with the thief's name and the time left, and the LOCKED chip turns red. Everything else stays where it was.</p>
+    <div class="stage">
+      <div class="scr">
+        <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab on">Core</span><span class="tab">Blocks</span><span class="tab">Upgrade</span><span class="tab off">Helm</span><span class="tab off">Plan</span></span></div>
+        <div style="display:flex;gap:8px;align-items:center"><span class="lbl">Name</span><span class="inp" style="width:150px">Harbour Lantern</span>
+          <span class="chip q">Parked</span><span class="chip r">Locked · Mrgregles</span></div>
+        <div class="grow" style="display:flex;gap:10px">
+          <div class="box grow" style="padding:8px 10px;display:flex;flex-direction:column;gap:5px">
+            <div class="lbl">Allowance · Tier II</div>
+            <div style="display:flex;align-items:baseline;gap:6px"><span style="font:600 22px Oswald;line-height:1">143</span><span class="m">of 500 blocks</span></div>
+            <div class="bar"><i style="width:29%"></i></div>
+            <div class="m sm">Nothing left out.</div>
+            <div class="m sm" style="margin-top:4px">The construct's blocks. Build onto it and the count follows.</div>
+          </div>
+          <div class="box" style="width:150px;padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+            <div class="lbl">Aboard</div><div>1 Shatter Totem</div><div>1 chest · 0 machines</div><div class="m">Owner: Mrgregles</div><div class="m">Helm: open to anyone</div>
+          </div>
+        </div>
+        <div class="bar r" style="height:5px"><i style="width:49%"></i></div>
+        <div class="r sm">Rook is stealing this core · 2:31 left · stay within 3 blocks</div>
+        <div class="keys"><span class="key lock">Release</span><span class="key ghost on">Show outline</span><span class="gap"></span><span class="key red">Stealing…</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Layout B. The lock box</h3>
+    <p>The Aboard box shrinks to its two counts and a Lock box takes the space below it: who holds the lock, who it admits (team), and the lock's own key (UNLOCK for the owner, STEAL for an enemy, SURE? on the second click). A steal fills the box: a ring counting down, the thief's name, the radius rule. The main key row is untouched.</p>
+    <div class="stage">
+      <div class="scr">
+        <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab on">Core</span><span class="tab">Blocks</span><span class="tab">Upgrade</span><span class="tab off">Helm</span><span class="tab off">Plan</span></span></div>
+        <div style="display:flex;gap:8px;align-items:center"><span class="lbl">Name</span><span class="inp" style="width:170px">Harbour Lantern</span><span class="chip q">Parked</span></div>
+        <div class="grow" style="display:flex;gap:10px">
+          <div class="box grow" style="padding:8px 10px;display:flex;flex-direction:column;gap:5px">
+            <div class="lbl">Allowance · Tier II</div>
+            <div style="display:flex;align-items:baseline;gap:6px"><span style="font:600 22px Oswald;line-height:1">143</span><span class="m">of 500 blocks</span></div>
+            <div class="bar"><i style="width:29%"></i></div>
+            <div class="m sm">Nothing left out.</div>
+            <div class="m sm" style="margin-top:4px">The construct's blocks. Build onto it and the count follows.</div>
+          </div>
+          <div style="width:150px;display:flex;flex-direction:column;gap:6px">
+            <div class="box" style="padding:6px 10px;display:flex;flex-direction:column;gap:3px"><div class="lbl">Aboard</div><div>1 Shatter Totem</div><div>1 chest · 0 machines</div></div>
+            <div class="box grow" style="padding:6px 10px;display:flex;flex-direction:column;gap:4px;box-shadow:inset 0 0 0 1px var(--R)">
+              <div class="lbl r">Lock · Mrgregles</div>
+              <div style="display:flex;gap:8px;align-items:center"><span class="ring"><i>2:31</i></span><div class="sm"><div class="r b">Rook is stealing</div><div class="m">stay within 3 blocks</div></div></div>
+              <span class="key red" style="height:18px;font-size:8.5px">Stealing…</span>
+            </div>
+          </div>
+        </div>
+        <div class="keys"><span class="key lock">Release</span><span class="key ghost on">Show outline</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Layout C. The banner</h3>
+    <p>A banner under the name row carries the lock: violet "LOCKED · Mrgregles · team admitted" with UNLOCK or STEAL at its right end; during a steal the banner turns red and becomes the progress bar itself, the thief's name and the time left printed over it. The boxes below lose eight pixels of height; the key row is unchanged.</p>
+    <div class="stage">
+      <div class="scr">
+        <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab on">Core</span><span class="tab">Blocks</span><span class="tab">Upgrade</span><span class="tab off">Helm</span><span class="tab off">Plan</span></span></div>
+        <div style="display:flex;gap:8px;align-items:center"><span class="lbl">Name</span><span class="inp" style="width:170px">Harbour Lantern</span><span class="chip q">Parked</span></div>
+        <div class="banner" style="position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:49%;background:#5a2520"></span>
+          <span class="r b" style="position:relative">Rook is stealing this core</span><span class="m" style="position:relative">2:31 left · stay within 3 blocks</span><span class="key red" style="position:relative;margin-left:auto;height:16px;font-size:8px;padding:0 8px">Stealing…</span></div>
+        <div class="grow" style="display:flex;gap:10px">
+          <div class="box grow" style="padding:8px 10px;display:flex;flex-direction:column;gap:5px">
+            <div class="lbl">Allowance · Tier II</div>
+            <div style="display:flex;align-items:baseline;gap:6px"><span style="font:600 22px Oswald;line-height:1">143</span><span class="m">of 500 blocks</span></div>
+            <div class="bar"><i style="width:29%"></i></div>
+            <div class="m sm">Nothing left out.</div>
+          </div>
+          <div class="box" style="width:150px;padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+            <div class="lbl">Aboard</div><div>1 Shatter Totem</div><div>1 chest · 0 machines</div><div class="m">Owner: Mrgregles</div><div class="m">Helm: open to anyone</div>
+          </div>
+        </div>
+        <div class="keys"><span class="key lock">Release</span><span class="key ghost on">Show outline</span></div>
+      </div>
+    </div>
+    <p>The same banner at rest, as the owner sees it:</p>
+    <div class="stage">
+      <div class="scr" style="height:92px;padding-bottom:0">
+        <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab on">Core</span><span class="tab">Blocks</span><span class="tab">Upgrade</span><span class="tab off">Helm</span><span class="tab off">Plan</span></span></div>
+        <div style="display:flex;gap:8px;align-items:center"><span class="lbl">Name</span><span class="inp" style="width:170px">Harbour Lantern</span><span class="chip q">Parked</span></div>
+        <div class="banner v"><span class="vv b">Locked · Mrgregles</span><span class="m">team admitted</span><span class="key ghost" style="margin-left:auto;height:16px;font-size:8px;padding:0 8px">Unlock</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Decisions (defaults first)</h2>
+  <ol>
+    <li><b>1, the scope of MB-3.</b> Default: MB-3 builds the core lock (the item, binding, the timed steal, the screen) and the totem rule's data (the caps a construct with a totem aboard will obey, stored for the driving task) with the request rows to BSP-Core; the helm lock arrives with the helm in MB-4 and reuses the same lock. Or MB-3 waits until the helm exists and builds both locks then.</li>
+    <li><b>2, the lock item.</b> Default: "Mobile Core Lock", shaped in the crafting table: 4 Tetrium Ingots at the edges, 4 Iron Ingots at the corners and a Magnatite Ingot in the middle, its icon from this page. Or a dearer lock with a Netherite Ingot in the middle, so locking is a late-game act.</li>
+    <li><b>3, the icon.</b> Default: the Padlock. Or the Clamp. Or the Seal.</li>
+    <li><b>4, putting the lock on and taking it off.</b> Default: right-click the core with the lock in hand: the lock is used up and the core binds to that player, who becomes its owner; the owner takes it off with UNLOCK on the CORE tab (a second click within three seconds) and gets the lock item back. Or the lock sits in a slot on the UPGRADE tab and is taken out from there.</li>
+    <li><b>5, who a lock admits.</b> Default: the owner and their teammates (BSP-Core's Teams) may ASSEMBLE, RELEASE, RENAME, BUY a tier and, later, drive; everyone else may open the screen and read it. The owner's totem friends are admitted as soon as BSP-Core offers a call for it (a request row). Or the owner alone.</li>
+    <li><b>6, the steal.</b> Default: an enemy within 3 blocks of a locked core clicks STEAL (a second click within three seconds); the steal runs 5 minutes (config), pauses while the thief is farther than 3 blocks, and fails when they stay away for 30 seconds, die or log out; the owner and their teammates get a chat warning when it starts and when it ends, and everyone with the screen open sees the progress; at the end the thief owns the core, the construct and the lock, which stays on. One steal at a time per core; the distance is measured in the construct's own space, so a steal works aboard a moving construct. Or the thief must hold right-click on the core for the whole time, as if mining it.</li>
+    <li><b>7, the screen.</b> Default: Layout A, the chip and the key. Or Layout B, the lock box. Or Layout C, the banner.</li>
+    <li><b>8, admins.</b> Default: BSP-Core admins act on any locked core without stealing it, and may UNLOCK it (the lock item drops at the core). Or admins obey locks like anyone else.</li>
+    <li><b>9, the totem aboard.</b> Default: a construct carrying a placed Shatter Totem moves at most 5 blocks a second and no higher than 64 blocks above the ground beneath it (both config); MB-3 stores these caps and shows "Totem aboard: slowed and height-capped" in the Aboard box; the driving task enforces them. Or leave the numbers until the driving task.</li>
+    <li><b>10, the requests to BSP-Core.</b> Default: two rows now: steals and every other totem distance check project a shipyard position into the world through a hook BSP-Mobile provides by class name; and a call that says whether a player is on a totem owner's friends list, for the lock. Or only the first row now.</li>
+  </ol>
+</section>
+</div>
+
+<script>
+(function(){
+  const PAL = {
+    k:'#1b1f27', d:'#3b4250', i:'#5b6270', l:'#8a93a3', e:'#d7dde8',
+    w:'#4a3576', v:'#6b4ea8', V:'#b58cff',
+    n:'#2e4a66', m:'#4a6b8a', M:'#7fa3c4',
+    g:'#ffd23a', G:'#b8902a', r:'#d8322c',
+    t:'#19d3b0', T:'#0f8f78', u:'#0a5c4e', a:'#cfe8f0'
+  };
+  const MAPS = {
+    padlock: [
+      '................',
+      '.....llllll.....',
+      '....ld....dl....',
+      '....l......l....',
+      '....l......l....',
+      '....l......l....',
+      '....l......l....',
+      '...VVVVVVVVVw...',
+      '...Vvvvvvvvvw...',
+      '...Vvvvttvvvw...',
+      '...Vvvvttvvvw...',
+      '...Vvvvvtvvvw...',
+      '...Vvvvvtvvvw...',
+      '...Vvvvvvvvvw...',
+      '...wwwwwwwwww...',
+      '................'],
+    clamp: [
+      '................',
+      '..mmm......mmm..',
+      '..mMm......mMm..',
+      '..mM........Mm..',
+      '..mM........Mm..',
+      '..mM...tt...Mm..',
+      '..mM.gggggg.Mm..',
+      '..mMggggggggMm..',
+      '..mMggGGGGggMm..',
+      '..mM.GGGGGG.Mm..',
+      '..mM........Mm..',
+      '..mM........Mm..',
+      '..mM........Mm..',
+      '..mnm......mnm..',
+      '..nnn......nnn..',
+      '................'],
+    seal: [
+      '................',
+      '.....VVVVVV.....',
+      '...VVvvvvvvVV...',
+      '..Vvvvlvvlvvvw..',
+      '..Vvvvvvvvvvvw..',
+      '.Vvvvvvvttvvvvw.',
+      '.Vvvvvvvttvvvvw.',
+      '.Vvvvttttttvvvw.',
+      '.Vvvvttttttvvvw.',
+      '.Vvvvvvvttvvvvw.',
+      '.Vvvvvvvttvvvvw.',
+      '..Vvvvvvvvvvvw..',
+      '..Vvvvlvvlvvvw..',
+      '...wwvvvvvvww...',
+      '.....wwwwww.....',
+      '................'],
+    // the parts and the core, for the inventory row (the same maps as part_icon_concepts.html, Style B)
+    processor: ['................','................','....g.g.g.g.....','...kkkkkkkkkk...','..gkVVVVVVVVkg..','...kVvvvvvvwk...','..gkVvwwwwvwkg..','...kVvwttwvwk...','..gkVvwttwvwkg..','...kVvwwwwvwk...','..gkVvvvvvvwkg..','...kwwwwwwwwk...','...kkkkkkkkkk...','....g.g.g.g.....','................','................'],
+    gps: ['..........r.....','..........l.....','..........l.....','....dddddddd....','....dkkkkkkd....','....dkaTTTkd....','....dkTttTkd....','....dkTTTakd....','....dkkkkkkd....','....diiiiiid....','....dikkikkd....','....diiiiiid....','....dikggkid....','....diiiiiid....','....dddddddd....','................'],
+    gyroscope: ['................','......mmmm......','....mm....mm....','...m...MM...m...','..m...M..M...m..','..m..M....M..m..','..m..M....M..m..','..mllMlgglMllm..','..m..M.gG.M..m..','..m..M....M..m..','..m..M....M..m..','..m...M..M...m..','...m...MM...m...','....mm....mm....','....ddmmmmdd....','....dddddddd....'],
+  };
+  function draw(canvas, map, name){
+    const ctx = canvas.getContext('2d');
+    if (map.length !== 16) console.error(name + ': ' + map.length + ' rows');
+    map.forEach((row, y) => {
+      if (row.length !== 16) console.error(name + ' row ' + y + ': ' + row.length + ' columns');
+      for (let x = 0; x < 16; x++) {
+        const c = PAL[row[x]];
+        if (row[x] !== '.' && !c) console.error(name + ': unknown key ' + row[x]);
+        if (c) { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); }
+      }
+    });
+  }
+  document.querySelectorAll('canvas[data-icon]').forEach(c => draw(c, MAPS[c.dataset.icon], c.dataset.icon));
+  function coreIcon(canvas){
+    const ctx = canvas.getContext('2d');
+    const px = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); };
+    for (let y=3;y<13;y++) for (let x=3;x<13;x++) { const d = x - y; px(x, y, (d===1 || d===2) ? PAL.V : PAL.v); }
+    for (let y=0;y<16;y++) for (let x=0;x<16;x++) { const bar = x<2 || x>13 || y<2 || y>13; if (bar) px(x, y, (x===0||x===15||y===0||y===15) ? PAL.d : PAL.i); }
+    for (const [x,y] of [[0,0],[15,0],[0,15],[15,15],[1,1],[14,1],[1,14],[14,14]]) px(x, y, PAL.l);
+    for (let i=5;i<11;i++){ px(i, 7, PAL.t); px(7, i, PAL.t); }
+  }
+  const row = document.getElementById('row');
+  const slot = el => { const d = document.createElement('span'); d.className = 'slot'; d.appendChild(el); row.appendChild(d); };
+  for (const n of ['padlock','clamp','seal','processor','gps','gyroscope']) { const c = document.createElement('canvas'); c.width = 16; c.height = 16; draw(c, MAPS[n], n); slot(c); }
+  const core = document.createElement('canvas'); core.width = 16; core.height = 16; coreIcon(core); slot(core);
+})();
+</script>
+</body>
+</html>

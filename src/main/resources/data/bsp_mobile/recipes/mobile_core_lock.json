@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ITI",
+    "TMT",
+    "ITI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "T": {
+      "item": "bsp_core:tetrium_ingot"
+    },
+    "M": {
+      "item": "bsp_core:magnatite_ingot"
+    }
+  },
+  "result": {
+    "item": "bsp_mobile:mobile_core_lock",
+    "count": 1
+  }
+}

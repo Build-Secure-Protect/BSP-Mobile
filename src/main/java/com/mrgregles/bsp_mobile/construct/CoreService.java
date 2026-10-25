@@ -25,8 +25,9 @@ import java.util.Optional;
 
 /**
  * What the Mobile Core does, server side: the screen's data, assembling the gather into a construct, releasing it,
- * renaming, and buying a tier. Commands and screens go through here so they behave the same. Valkyrien Skies is reached only through the
- * bridge; BSP-Core only through its adapter.
+ * renaming, and buying a tier. Commands and screens go through here so they behave the same. Every action takes the
+ * acting player, refused with {@code locked} when the core's lock does not admit them (D30); a null actor is the server
+ * itself. Valkyrien Skies is reached only through the bridge; BSP-Core only through its adapter.
  */
 public final class CoreService {
     /** How far a player may be from a core (in the world) to open or act on its screen. */
@@ -91,18 +92,25 @@ public final class CoreService {
         boolean owner = be.owner() != null && be.owner().equals(player.getUUID());
         boolean coins = BspCore.coinsAvailable();
         int worth = coins ? BspCore.coinWorth(player) : 0;
+        boolean admitted = Access.admitted(level, be, player);
         CoreViewPacket view = new CoreViewPacket(pos, open, be.name(), tier, gather.allowance(), gather.count(), gather.tooMany(),
                 state.ordinal(), c == null ? 0 : c.speed(), refused, kinds, aboard.totems, aboard.chests, aboard.machines,
-                be.ownerName(), owner, nextAllowance, Tiers.count(), coins, Prices.ladder(), worth, coins ? Prices.breakdown(worth) : List.of(), note);
+                be.ownerName(), owner, nextAllowance, Tiers.count(), coins, Prices.ladder(), worth, coins ? Prices.breakdown(worth) : List.of(),
+                be.locked(), admitted, be.stealRunning() ? be.thiefName() : "", be.stealLeft(), be.stealTotal(), be.stealOutside(), note);
         MobileNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), view);
         long[] taken = gather.blocks().stream().mapToLong(BlockPos::asLong).toArray();
         long[] left = gather.refused().stream().mapToLong(r -> r.pos().asLong()).toArray();
         MobileNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new CoreOutlinePacket(pos, taken, left));
     }
 
-    private record Aboard(int totems, int chests, int machines) {}
+    /** What the gather carries that the rules care about: placed totems (D2, D34), containers, and other block entities. */
+    public record Aboard(int totems, int chests, int machines) {
+        public ConstructRules rules() {
+            return ConstructRules.of(totems);
+        }
+    }
 
-    private static Aboard aboard(ServerLevel level, Gather.Result gather) {
+    public static Aboard aboard(ServerLevel level, Gather.Result gather) {
         int totems = 0, chests = 0, machines = 0;
         for (BlockPos p : gather.blocks()) {
             BlockState state = level.getBlockState(p);
@@ -136,11 +144,18 @@ public final class CoreService {
 
     /** Assembles the core's gather into a construct, parked where it stood. */
     public static Outcome assemble(ServerLevel level, BlockPos pos) {
+        return assemble(level, pos, null);
+    }
+
+    public static Outcome assemble(ServerLevel level, BlockPos pos, @Nullable ServerPlayer actor) {
         Optional<MobileCoreBlockEntity> core = core(level, pos);
         if (core.isEmpty()) {
             return Outcome.failed("no_core");
         }
         MobileCoreBlockEntity be = core.get();
+        if (!Access.admitted(level, be, actor)) {
+            return Outcome.failed("locked");
+        }
         if (be.isAssembled()) {
             return Outcome.failed("assembled");
         }
@@ -195,11 +210,18 @@ public final class CoreService {
 
     /** Puts the construct's blocks back into the world (D19: only while parked). */
     public static Outcome release(ServerLevel level, BlockPos pos) {
+        return release(level, pos, null);
+    }
+
+    public static Outcome release(ServerLevel level, BlockPos pos, @Nullable ServerPlayer actor) {
         Optional<MobileCoreBlockEntity> core = core(level, pos);
         if (core.isEmpty()) {
             return Outcome.failed("no_core");
         }
         MobileCoreBlockEntity be = core.get();
+        if (!Access.admitted(level, be, actor)) {
+            return Outcome.failed("locked");
+        }
         if (!be.isAssembled()) {
             return Outcome.failed("not_assembled");
         }
@@ -233,6 +255,9 @@ public final class CoreService {
             return Outcome.failed("no_core");
         }
         MobileCoreBlockEntity be = core.get();
+        if (!Access.admitted(level, be, buyer)) {
+            return Outcome.failed("locked");
+        }
         int tier = be.tier();
         if (tier >= Tiers.count()) {
             return Outcome.failed("top");
@@ -252,9 +277,16 @@ public final class CoreService {
     }
 
     public static Outcome rename(ServerLevel level, BlockPos pos, String name) {
+        return rename(level, pos, name, null);
+    }
+
+    public static Outcome rename(ServerLevel level, BlockPos pos, String name, @Nullable ServerPlayer actor) {
         Optional<MobileCoreBlockEntity> core = core(level, pos);
         if (core.isEmpty()) {
             return Outcome.failed("no_core");
+        }
+        if (!Access.admitted(level, core.get(), actor)) {
+            return Outcome.failed("locked");
         }
         String clean = name.strip().replaceAll("[\\p{Cntrl}§]", "");
         if (clean.isEmpty()) {

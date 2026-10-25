@@ -1,6 +1,7 @@
 package com.mrgregles.bsp_mobile.network;
 
 import com.mrgregles.bsp_mobile.construct.CoreService;
+import com.mrgregles.bsp_mobile.construct.LockService;
 import com.mrgregles.bsp_mobile.construct.MobileCoreBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
@@ -12,7 +13,7 @@ import java.util.function.Supplier;
 
 /** Client to server: what the player did on the core's screen. The server checks reach and acts, then answers with a fresh view. */
 public record CoreActionPacket(BlockPos pos, Action action, String text) {
-    public enum Action { REFRESH, ASSEMBLE, RELEASE, RENAME, UPGRADE }
+    public enum Action { REFRESH, ASSEMBLE, RELEASE, RENAME, UPGRADE, UNLOCK, STEAL }
 
     public void encode(FriendlyByteBuf buf) {
         buf.writeBlockPos(pos);
@@ -31,10 +32,12 @@ public record CoreActionPacket(BlockPos pos, Action action, String text) {
             return;
         }
         CoreService.Outcome outcome = switch (action) {
-            case ASSEMBLE -> CoreService.assemble(level, pos);
-            case RELEASE -> CoreService.release(level, pos);
-            case RENAME -> CoreService.rename(level, pos, text);
+            case ASSEMBLE -> CoreService.assemble(level, pos, player);
+            case RELEASE -> CoreService.release(level, pos, player);
+            case RENAME -> CoreService.rename(level, pos, text, player);
             case UPGRADE -> CoreService.upgrade(level, pos, player);
+            case UNLOCK -> LockService.unlock(level, pos, player);
+            case STEAL -> LockService.startSteal(level, pos, player);
             case REFRESH -> null;
         };
         String note = outcome == null ? "" : outcome.ok() ? action.name().toLowerCase(java.util.Locale.ROOT) + ".ok" : "fail." + outcome.reason();

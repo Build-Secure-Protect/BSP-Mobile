@@ -9,8 +9,9 @@ The moving blocks are Valkyrien Skies 2 ships; this mod adds the core, the allow
 ## What exists so far
 
 - **The Mobile Core**: an iron cage round a glass heart, crafted from three parts (the Mobile Core Processor, GPS and Gyroscope, each with its own recipe from BSP-Core's metals and vanilla parts). Right-click it for its screen: the blocks it will take (every block touching the structure, up to the tier's allowance, 200 at Tier I), what it refuses and why (bedrock, other cores, admin blocks, unmovable blocks), the construct's name, ASSEMBLE and RELEASE. While the screen is open the blocks are outlined in the world. An assembled construct stands parked where it was built until a helm moves it (a later task).
+- **The Mobile Core Lock**: right-clicked on a core it binds the core to its owner; only the owner, their team and admins may then use or mine it. An enemy takes a locked core by standing within 3 blocks and holding a 5-minute steal (the owner is warned), after which the core and its construct are theirs.
 - **Tiers**: the UPGRADE tab sells the next tier for Shatter Coins (6 Gold, then 3 Diamond, 2 Netherite and 1 Illyrium by default) to whoever stands at the core, with change.
-- The server config `serverconfig/bsp_mobile-server.toml`: the tier ladder and its prices, extra blocks a core never takes, the moving threshold.
+- The server config `serverconfig/bsp_mobile-server.toml`: the tier ladder and its prices, extra blocks a core never takes, the moving threshold, the lock's steal (length, radius, grace), and the caps on a construct carrying a Shatter Totem.
 
 The mod is in development and has not yet been tried on a live server.
 

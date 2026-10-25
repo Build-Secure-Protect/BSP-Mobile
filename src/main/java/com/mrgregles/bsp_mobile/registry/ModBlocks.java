@@ -4,6 +4,7 @@ import com.mrgregles.bsp_mobile.BSPMobile;
 import com.mrgregles.bsp_mobile.construct.MobileCoreBlock;
 import com.mrgregles.bsp_mobile.construct.MobileCoreBlockEntity;
 import com.mrgregles.bsp_mobile.construct.MobileCoreItem;
+import com.mrgregles.bsp_mobile.construct.LockItem;
 import com.mrgregles.bsp_mobile.construct.PartItem;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
@@ -27,6 +28,8 @@ public final class ModBlocks {
     public static final RegistryObject<Item> MOBILE_CORE_PROCESSOR = ITEMS.register("mobile_core_processor", () -> new PartItem(new Item.Properties()));
     public static final RegistryObject<Item> MOBILE_CORE_GPS = ITEMS.register("mobile_core_gps", () -> new PartItem(new Item.Properties()));
     public static final RegistryObject<Item> MOBILE_CORE_GYROSCOPE = ITEMS.register("mobile_core_gyroscope", () -> new PartItem(new Item.Properties()));
+    // the Mobile Core Lock (D27 to D31): binds a core to its owner; recipe from tools/gen_recipes.py
+    public static final RegistryObject<Item> MOBILE_CORE_LOCK = ITEMS.register("mobile_core_lock", () -> new LockItem(new Item.Properties().stacksTo(16)));
     @SuppressWarnings("DataFlowIssue")
     public static final RegistryObject<BlockEntityType<MobileCoreBlockEntity>> MOBILE_CORE_ENTITY = BLOCK_ENTITIES.register("mobile_core",
             () -> BlockEntityType.Builder.of(MobileCoreBlockEntity::new, MOBILE_CORE.get()).build(null));
@@ -46,6 +49,7 @@ public final class ModBlocks {
             event.accept(MOBILE_CORE_PROCESSOR);
             event.accept(MOBILE_CORE_GPS);
             event.accept(MOBILE_CORE_GYROSCOPE);
+            event.accept(MOBILE_CORE_LOCK);
         }
     }
 }

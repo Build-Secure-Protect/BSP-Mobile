@@ -16,11 +16,14 @@ import java.util.function.Supplier;
  * {@code reason} is {@code Gather.Reason.ordinal()}; block ids are registry names the client turns into names.
  * {@code coins} says whether BSP-Core's coins can be used; {@code prices} is one entry per step up the ladder (Tier I
  * to II first); {@code worth} and {@code carried} are the viewer's coins, in copper units and as the fewest coins.
+ * {@code locked} and {@code admitted} are the lock's state for the viewer (D30); while a steal runs {@code thiefName}
+ * is set and {@code stealLeft} of {@code stealTotal} ticks remain, {@code stealOutside} while the thief is away.
  */
 public record CoreViewPacket(BlockPos pos, boolean open, String name, int tier, int allowance, int count, boolean tooMany,
                              int state, double speed, List<Refused> refused, List<Kind> kinds, int totems, int chests, int machines,
                              String ownerName, boolean owner, int nextAllowance, int tiers, boolean coins, List<Prices.Coins> prices,
-                             int worth, List<Prices.Coins> carried, String note) {
+                             int worth, List<Prices.Coins> carried, boolean locked, boolean admitted, String thiefName, int stealLeft,
+                             int stealTotal, boolean stealOutside, String note) {
     public static final int MAX_KINDS = 512;
     private static final int MAX_COINS = 16;
 
@@ -61,6 +64,12 @@ public record CoreViewPacket(BlockPos pos, boolean open, String name, int tier, 
         writeCoins(buf, prices);
         buf.writeVarInt(worth);
         writeCoins(buf, carried);
+        buf.writeBoolean(locked);
+        buf.writeBoolean(admitted);
+        buf.writeUtf(thiefName, 64);
+        buf.writeVarInt(stealLeft);
+        buf.writeVarInt(stealTotal);
+        buf.writeBoolean(stealOutside);
         buf.writeUtf(note, 256);
     }
 
@@ -109,9 +118,13 @@ public record CoreViewPacket(BlockPos pos, boolean open, String name, int tier, 
         List<Prices.Coins> prices = readCoins(buf);
         int worth = buf.readVarInt();
         List<Prices.Coins> carried = readCoins(buf);
+        boolean locked = buf.readBoolean(), admitted = buf.readBoolean();
+        String thiefName = buf.readUtf(64);
+        int stealLeft = buf.readVarInt(), stealTotal = buf.readVarInt();
+        boolean stealOutside = buf.readBoolean();
         String note = buf.readUtf(256);
         return new CoreViewPacket(pos, open, name, tier, allowance, count, tooMany, state, speed, refused, kinds, totems, chests, machines,
-                ownerName, owner, nextAllowance, tiers, coins, prices, worth, carried, note);
+                ownerName, owner, nextAllowance, tiers, coins, prices, worth, carried, locked, admitted, thiefName, stealLeft, stealTotal, stealOutside, note);
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {

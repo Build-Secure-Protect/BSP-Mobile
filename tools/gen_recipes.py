@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Writes the crafting recipes (owner decisions D22 and D24): the three parts the Mobile Core is made of, each a shaped
-recipe in the crafting table, and the core itself from the three parts. Edit this script, never the output.
+"""Writes the crafting recipes (owner decisions D22, D24 and D27): the three parts the Mobile Core is made of, each a shaped
+recipe in the crafting table, the core itself from the three parts, and the Mobile Core Lock. Edit this script, never the output.
 
 The BSP metals come from BSP-Core (bsp_core:tetrium_ingot, bsp_core:magnatite_ingot; BSP-Core is a required mod, so
 the recipes always load). Everything else is vanilla.
@@ -25,6 +25,8 @@ RECIPES_SHAPED = {
     "mobile_core_gps": (["GTG", "TCT", "GTG"], {"G": "minecraft:glass_pane", "T": TETRIUM, "C": "minecraft:compass"}),
     # 4 Magnatite Ingots at the edges, 4 Iron Bars at the corners, a Gold Ingot in the middle
     "mobile_core_gyroscope": (["BMB", "MGM", "BMB"], {"B": "minecraft:iron_bars", "M": MAGNATITE, "G": "minecraft:gold_ingot"}),
+    # the Mobile Core Lock (D27): 4 Tetrium Ingots at the edges, 4 Iron Ingots at the corners, a Magnatite Ingot in the middle
+    "mobile_core_lock": (["ITI", "TMT", "ITI"], {"I": "minecraft:iron_ingot", "T": TETRIUM, "M": MAGNATITE}),
     # Iron Bars at the corners, the GPS top-middle, the Processor left-middle, the Gyroscope right-middle,
     # a Tetrium Ingot bottom-middle, an Amethyst Block in the middle
     "mobile_core": (["BSB", "PAY", "BTB"], {"B": "minecraft:iron_bars", "S": f"{MOD}:mobile_core_gps", "P": f"{MOD}:mobile_core_processor",

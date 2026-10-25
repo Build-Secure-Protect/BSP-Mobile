@@ -38,7 +38,8 @@ PART_PALETTE = {
     "t": (0x19, 0xD3, 0xB0, 255), "T": (0x0F, 0x8F, 0x78, 255), "u": (0x0A, 0x5C, 0x4E, 255), "a": (0xCF, 0xE8, 0xF0, 255),
     ".": CLEAR,
 }
-# Style B (D25): the parts drawn as objects. A square Tetrium chip with sixteen gold pins and a teal die on its trace
+# Style B (D25): the parts drawn as objects, and the Mobile Core Lock (D28, the Padlock: an iron shackle over a Tetrium
+# body with a teal keyhole). A square Tetrium chip with sixteen gold pins and a teal die on its trace
 # square; a handheld GPS with a red-tipped antenna, a teal screen with a blip, two buttons and a gold key; a Magnatite
 # gimbal on an iron base with a gold ball at the pivot.
 PARTS = {
@@ -93,6 +94,23 @@ PARTS = {
         "....mm....mm....",
         "....ddmmmmdd....",
         "....dddddddd...."],
+    "mobile_core_lock": [
+        "................",
+        ".....llllll.....",
+        "....ld....dl....",
+        "....l......l....",
+        "....l......l....",
+        "....l......l....",
+        "....l......l....",
+        "...VVVVVVVVVw...",
+        "...Vvvvvvvvvw...",
+        "...Vvvvttvvvw...",
+        "...Vvvvttvvvw...",
+        "...Vvvvvtvvvw...",
+        "...Vvvvvtvvvw...",
+        "...Vvvvvvvvvw...",
+        "...wwwwwwwwww...",
+        "................"],
 }
 
 

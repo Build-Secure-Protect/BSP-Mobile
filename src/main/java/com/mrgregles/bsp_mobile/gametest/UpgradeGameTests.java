@@ -24,7 +24,7 @@ import net.minecraftforge.registries.ForgeRegistries;
 import java.util.Map;
 import java.util.Optional;
 
-/** MB-2: buying a tier (the price taken with change, a refusal when short, the top tier) and the recipes of the parts and the core. */
+/** MB-2: buying a tier (the price taken with change, a refusal when short, the top tier) and the recipes of the parts, the core and the lock. */
 @GameTestHolder(BSPMobile.MODID)
 @PrefixGameTestTemplate(false)
 public class UpgradeGameTests {
@@ -139,6 +139,7 @@ public class UpgradeGameTests {
                 "mobile_core_processor", Map.of("bsp_core:tetrium_ingot", 4, "minecraft:redstone", 4, "minecraft:diamond", 1),
                 "mobile_core_gps", Map.of("minecraft:glass_pane", 4, "bsp_core:tetrium_ingot", 4, "minecraft:compass", 1),
                 "mobile_core_gyroscope", Map.of("minecraft:iron_bars", 4, "bsp_core:magnatite_ingot", 4, "minecraft:gold_ingot", 1),
+                "mobile_core_lock", Map.of("minecraft:iron_ingot", 4, "bsp_core:tetrium_ingot", 4, "bsp_core:magnatite_ingot", 1),
                 "mobile_core", Map.of("minecraft:iron_bars", 4, "bsp_mobile:mobile_core_gps", 1, "bsp_mobile:mobile_core_processor", 1,
                         "bsp_mobile:mobile_core_gyroscope", 1, "bsp_core:tetrium_ingot", 1, "minecraft:amethyst_block", 1));
         for (var e : expected.entrySet()) {
