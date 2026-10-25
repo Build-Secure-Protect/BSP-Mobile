@@ -4,6 +4,7 @@ import com.mrgregles.bsp_mobile.BSPMobile;
 import com.mrgregles.bsp_mobile.construct.MobileCoreBlock;
 import com.mrgregles.bsp_mobile.construct.MobileCoreBlockEntity;
 import com.mrgregles.bsp_mobile.construct.MobileCoreItem;
+import com.mrgregles.bsp_mobile.construct.PartItem;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
@@ -22,6 +23,10 @@ public final class ModBlocks {
 
     public static final RegistryObject<MobileCoreBlock> MOBILE_CORE = BLOCKS.register("mobile_core", MobileCoreBlock::new);
     public static final RegistryObject<Item> MOBILE_CORE_ITEM = ITEMS.register("mobile_core", () -> new MobileCoreItem(MOBILE_CORE.get(), new Item.Properties()));
+    // the three parts the core is crafted from (D22, D25); recipes in data/bsp_mobile/recipes from tools/gen_recipes.py
+    public static final RegistryObject<Item> MOBILE_CORE_PROCESSOR = ITEMS.register("mobile_core_processor", () -> new PartItem(new Item.Properties()));
+    public static final RegistryObject<Item> MOBILE_CORE_GPS = ITEMS.register("mobile_core_gps", () -> new PartItem(new Item.Properties()));
+    public static final RegistryObject<Item> MOBILE_CORE_GYROSCOPE = ITEMS.register("mobile_core_gyroscope", () -> new PartItem(new Item.Properties()));
     @SuppressWarnings("DataFlowIssue")
     public static final RegistryObject<BlockEntityType<MobileCoreBlockEntity>> MOBILE_CORE_ENTITY = BLOCK_ENTITIES.register("mobile_core",
             () -> BlockEntityType.Builder.of(MobileCoreBlockEntity::new, MOBILE_CORE.get()).build(null));
@@ -38,6 +43,9 @@ public final class ModBlocks {
     private static void onCreativeTabs(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
             event.accept(MOBILE_CORE_ITEM);
+            event.accept(MOBILE_CORE_PROCESSOR);
+            event.accept(MOBILE_CORE_GPS);
+            event.accept(MOBILE_CORE_GYROSCOPE);
         }
     }
 }

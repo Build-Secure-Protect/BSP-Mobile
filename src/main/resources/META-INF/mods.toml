@@ -31,10 +31,10 @@ description='''${mod_description}'''
     ordering="AFTER"
     side="BOTH"
 
-# Optional: with BSP-Core the mod reads totems, teams, coins and the admin list.
+# BSP-Core: the Shatter Coins that buy a core's tiers, the metals in the parts' recipes, totems, teams and the admin list.
 [[dependencies.${mod_id}]]
     modId="bsp_core"
-    mandatory=false
+    mandatory=true
     versionRange="${bsp_core_version_range}"
     ordering="AFTER"
     side="BOTH"

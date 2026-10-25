@@ -12,7 +12,7 @@ import java.util.function.Supplier;
 
 /** Client to server: what the player did on the core's screen. The server checks reach and acts, then answers with a fresh view. */
 public record CoreActionPacket(BlockPos pos, Action action, String text) {
-    public enum Action { REFRESH, ASSEMBLE, RELEASE, RENAME }
+    public enum Action { REFRESH, ASSEMBLE, RELEASE, RENAME, UPGRADE }
 
     public void encode(FriendlyByteBuf buf) {
         buf.writeBlockPos(pos);
@@ -34,6 +34,7 @@ public record CoreActionPacket(BlockPos pos, Action action, String text) {
             case ASSEMBLE -> CoreService.assemble(level, pos);
             case RELEASE -> CoreService.release(level, pos);
             case RENAME -> CoreService.rename(level, pos, text);
+            case UPGRADE -> CoreService.upgrade(level, pos, player);
             case REFRESH -> null;
         };
         String note = outcome == null ? "" : outcome.ok() ? action.name().toLowerCase(java.util.Locale.ROOT) + ".ok" : "fail." + outcome.reason();

@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Core Part Icons</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* MB-2 icon mock-ups for BSP-Mobile: the three part items of the Mobile Core (D22, D24): the Mobile Core Processor,
+   the Mobile Core GPS and the Mobile Core Gyroscope. Three styles, each drawn pixel by pixel at 16 x 16 and shown at 8x
+   like core_refined.html's faces, then at inventory size (2x) beside BSP-Core's own items. The pixel maps below are what
+   tools/gen_core_assets.py will write for the chosen style. Nothing here is in the mod yet. */
+:root{ --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --fg:#e8eaf0; --muted:#9aa3b5; --acc:#19d3b0; --board:#0b0d11;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace; color-scheme:dark; }
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; } }
+:root[data-theme="light"]{ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; }
+body{ background:var(--bg); color:var(--fg); font-family:var(--body); margin:0; font-size:14px; line-height:1.5; }
+.wrap{ max-width:1100px; margin:0 auto; padding:28px 16px 56px; display:flex; flex-direction:column; gap:28px; }
+h1{ font-size:clamp(22px,3.4vw,30px); margin:0; } h2{ font-size:18px; margin:0; color:var(--acc); } h3{ font-size:15px; margin:0; }
+.lede{ color:var(--muted); margin:0; max-width:78ch; }
+section{ display:flex; flex-direction:column; gap:14px; }
+.card{ background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px; display:flex; flex-direction:column; gap:12px; }
+.card p{ margin:0; font-size:13px; color:var(--muted); max-width:84ch; }
+.faces{ display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start; }
+.face{ display:flex; flex-direction:column; gap:6px; align-items:center; font-size:12px; color:var(--muted); }
+.face canvas{ width:128px; height:128px; image-rendering:pixelated; background:repeating-conic-gradient(#3a3f4b 0 25%,#262b36 0 50%) 0/16px 16px; border:1px solid var(--line); }
+.face b{ color:var(--fg); font-weight:500; }
+/* an inventory row at 2x: the in-game slot look */
+.inv{ display:inline-flex; gap:0; background:#c6c6c6; padding:6px; border:3px solid; border-color:#fff #555 #555 #fff; }
+.inv .slot{ width:32px; height:32px; background:#8b8b8b; box-shadow:inset 2px 2px 0 #373737, inset -2px -2px 0 #fff; display:grid; place-items:center; }
+.inv canvas, .inv img{ width:32px; height:32px; image-rendering:pixelated; display:block; }
+.invwrap{ display:flex; gap:14px; flex-wrap:wrap; align-items:center; font-size:12px; color:var(--muted); }
+ol{ margin:0; padding-left:22px; } ol li{ margin-bottom:8px; max-width:84ch; } ol b{ color:var(--fg); }
+.note{ font-size:12px; color:var(--muted); }
+.sw{ display:inline-block; width:10px; height:10px; border:1px solid var(--line); vertical-align:middle; margin-right:3px; }
+.pal{ display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12px; color:var(--muted); font-family:var(--mono); }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>The three parts of the Mobile Core: icon mock-ups</h1>
+  <p class="lede">The Mobile Core Processor, the Mobile Core GPS and the Mobile Core Gyroscope (D22), the items the core is crafted from (D24). Three styles, each a set of three 16 x 16 icons drawn pixel by pixel, shown at 8x and then at inventory size beside BSP-Core's Tetrium Ingot, Magnatite Ingot and Basic Control Circuit so the family can be judged where it will live. The pick goes to <code>tools/gen_core_assets.py</code>, which draws the same pixel maps. Decisions at the end.</p>
+</header>
+
+<section>
+  <h2>Style A. Plates</h2>
+  <div class="card">
+    <h3>Each part is a riveted iron plate with the component set into it and a coloured strip along the foot</h3>
+    <p>A uniform frame makes the three read as one kit at a glance: the same 14 x 14 bevelled plate, the emblem in the middle, and a strip in the part's colour (Tetrium violet for the Processor, teal for the GPS, gold for the Gyroscope). The Processor is a chip with gold pins and a teal die; the GPS a compass dial under glass with a red north needle and gold cardinal ticks; the Gyroscope two crossed Magnatite rings round a gold ball.</p>
+    <div class="faces">
+      <div class="face"><canvas data-icon="a_processor" width="16" height="16"></canvas><span><b>Processor</b></span></div>
+      <div class="face"><canvas data-icon="a_gps" width="16" height="16"></canvas><span><b>GPS</b></span></div>
+      <div class="face"><canvas data-icon="a_gyroscope" width="16" height="16"></canvas><span><b>Gyroscope</b></span></div>
+    </div>
+    <div class="invwrap"><span class="inv" data-row="a"></span><span>at 2x (GUI scale 2), beside the Mobile Core, Tetrium Ingot, Magnatite Ingot and Basic Control Circuit</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Style B. Objects</h2>
+  <div class="card">
+    <h3>Each part is drawn as the thing itself, no frame, the way BSP-Core draws its ingots, circuits and motors</h3>
+    <p>The biggest silhouettes of the three styles, so they read best at inventory size. The Processor is a square Tetrium chip with sixteen gold pins and a teal die on its trace square; the GPS a handheld unit with an antenna tipped red, a teal screen with a blip, two buttons and a gold key; the Gyroscope a free-standing Magnatite gimbal on an iron base with a gold ball at the pivot.</p>
+    <div class="faces">
+      <div class="face"><canvas data-icon="b_processor" width="16" height="16"></canvas><span><b>Processor</b></span></div>
+      <div class="face"><canvas data-icon="b_gps" width="16" height="16"></canvas><span><b>GPS</b></span></div>
+      <div class="face"><canvas data-icon="b_gyroscope" width="16" height="16"></canvas><span><b>Gyroscope</b></span></div>
+    </div>
+    <div class="invwrap"><span class="inv" data-row="b"></span><span>at 2x, beside the same items</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Style C. Core modules</h2>
+  <div class="card">
+    <h3>Each part is a small cube held by four iron corner brackets, the Gyro Cage's own look, its heart in the part's colour</h3>
+    <p>The parts look like pieces of the block they make: the cage's bracket corners round an 8 x 8 glass heart. The Processor's heart is Tetrium violet with a teal die and dark traces; the GPS's is deep teal with a pale dial ring and a red needle; the Gyroscope's is Magnatite blue with a gold ring round a bright pivot. Smallest emblems of the three, strongest family tie to the core.</p>
+    <div class="faces">
+      <div class="face"><canvas data-icon="c_processor" width="16" height="16"></canvas><span><b>Processor</b></span></div>
+      <div class="face"><canvas data-icon="c_gps" width="16" height="16"></canvas><span><b>GPS</b></span></div>
+      <div class="face"><canvas data-icon="c_gyroscope" width="16" height="16"></canvas><span><b>Gyroscope</b></span></div>
+    </div>
+    <div class="invwrap"><span class="inv" data-row="c"></span><span>at 2x, beside the same items</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>The palette</h2>
+  <div class="card">
+    <p>Every colour is one already in the mod or in BSP-Core's items, so the parts sit beside them without a new hue: the core's iron greys and Tetrium violets, Magnatite's blue, the screen's teal and gold, redstone red for needles and tips, pale glass for dials. The letters are the pixel-map keys the generator uses.</p>
+    <div class="pal" id="pal"></div>
+  </div>
+</section>
+
+<section>
+  <h2>Decisions (defaults first)</h2>
+  <ol>
+    <li><b>1, the style.</b> Default: Style B, the parts drawn as objects, because they are the clearest at inventory size and match how BSP-Core draws its own parts. Or Style A, the three on matching iron plates with a coloured foot strip, if a uniform kit matters more. Or Style C, the bracketed cubes, if the tie to the Gyro Cage matters more.</li>
+    <li><b>2, the creative tab.</b> Default: the three parts sit beside the Mobile Core in the Functional Blocks tab, so a player finds the whole kit in one place. Or in the Ingredients tab with vanilla's and BSP-Core's crafting parts.</li>
+    <li><b>3, the tooltip.</b> Default: one grey line under each part's name, "A part of the Mobile Core." Or no tooltip line, the name alone.</li>
+    <li><b>4, the core's own icon.</b> Default: the Mobile Core's item icon stays as it is (the cage over the heart with the teal cross, from MB-1). Or redrawn to match the chosen style of the parts.</li>
+  </ol>
+</section>
+</div>
+
+<script>
+(function(){
+  // the pixel-map keys; '.' is clear
+  const PAL = {
+    k:'#1b1f27', d:'#3b4250', i:'#5b6270', l:'#8a93a3', e:'#d7dde8',
+    w:'#4a3576', v:'#6b4ea8', V:'#b58cff',
+    n:'#2e4a66', m:'#4a6b8a', M:'#7fa3c4',
+    g:'#ffd23a', G:'#b8902a', r:'#d8322c',
+    t:'#19d3b0', T:'#0f8f78', u:'#0a5c4e', a:'#cfe8f0'
+  };
+  const NAMES = { k:'near black', d:'iron dark', i:'iron', l:'iron light', e:'bright', w:'tetrium dark', v:'tetrium', V:'tetrium light',
+    n:'magnatite dark', m:'magnatite', M:'magnatite light', g:'gold', G:'gold dark', r:'redstone', t:'teal', T:'teal dark', u:'teal deep', a:'glass' };
+
+  const MAPS = {
+    a_processor: [
+      '................',
+      '.llllllllllllll.',
+      '.lddddddddddddi.',
+      '.ldddgdgdgddddi.',
+      '.lddkkkkkkkkddi.',
+      '.ldgkvvvvvvkgdi.',
+      '.lddkvVVVVvkddi.',
+      '.ldgkvVttVvkgdi.',
+      '.lddkvVttVvkddi.',
+      '.ldgkvVVVVvkgdi.',
+      '.lddkvvvvvvkddi.',
+      '.lddkkkkkkkkddi.',
+      '.ldddgdgdgddddi.',
+      '.lvvvvvvvvvvvvi.',
+      '.liiiiiiiiiiiii.',
+      '................'],
+    a_gps: [
+      '................',
+      '.llllllllllllll.',
+      '.lddddddddddddi.',
+      '.lddddkggkddddi.',
+      '.ldddkarrakdddi.',
+      '.lddkaarraakddi.',
+      '.ldkaaarraaakdi.',
+      '.ldgaaaggaaagdi.',
+      '.ldgaaaggaaagdi.',
+      '.ldkaaaeeaaakdi.',
+      '.lddkaaeeaakddi.',
+      '.ldddkaeeakdddi.',
+      '.lddddkggkddddi.',
+      '.ltttttttttttti.',
+      '.liiiiiiiiiiiii.',
+      '................'],
+    a_gyroscope: [
+      '................',
+      '.llllllllllllll.',
+      '.lddddddddddddi.',
+      '.lddddMMMMddddi.',
+      '.ldddMddddMdddi.',
+      '.lddMmmmmmmMddi.',
+      '.ldmMddddddMmdi.',
+      '.ldmMddggddMmdi.',
+      '.ldmMddgGddMmdi.',
+      '.ldmMddddddMmdi.',
+      '.lddMmmmmmmMddi.',
+      '.ldddMddddMdddi.',
+      '.lddddMMMMddddi.',
+      '.lggggggggggggi.',
+      '.liiiiiiiiiiiii.',
+      '................'],
+    b_processor: [
+      '................',
+      '................',
+      '....g.g.g.g.....',
+      '...kkkkkkkkkk...',
+      '..gkVVVVVVVVkg..',
+      '...kVvvvvvvwk...',
+      '..gkVvwwwwvwkg..',
+      '...kVvwttwvwk...',
+      '..gkVvwttwvwkg..',
+      '...kVvwwwwvwk...',
+      '..gkVvvvvvvwkg..',
+      '...kwwwwwwwwk...',
+      '...kkkkkkkkkk...',
+      '....g.g.g.g.....',
+      '................',
+      '................'],
+    b_gps: [
+      '..........r.....',
+      '..........l.....',
+      '..........l.....',
+      '....dddddddd....',
+      '....dkkkkkkd....',
+      '....dkaTTTkd....',
+      '....dkTttTkd....',
+      '....dkTTTakd....',
+      '....dkkkkkkd....',
+      '....diiiiiid....',
+      '....dikkikkd....',
+      '....diiiiiid....',
+      '....dikggkid....',
+      '....diiiiiid....',
+      '....dddddddd....',
+      '................'],
+    b_gyroscope: [
+      '................',
+      '......mmmm......',
+      '....mm....mm....',
+      '...m...MM...m...',
+      '..m...M..M...m..',
+      '..m..M....M..m..',
+      '..m..M....M..m..',
+      '..mllMlgglMllm..',
+      '..m..M.gG.M..m..',
+      '..m..M....M..m..',
+      '..m..M....M..m..',
+      '..m...M..M...m..',
+      '...m...MM...m...',
+      '....mm....mm....',
+      '....ddmmmmdd....',
+      '....dddddddd....'],
+    c_processor: [
+      '................',
+      '.liii......iiil.',
+      '.i............i.',
+      '.i............i.',
+      '.i..VVVVVVVw..i.',
+      '....Vvvwvvvw....',
+      '....Vvvvvvvw....',
+      '....Vwvttvvw....',
+      '....Vvvttvww....',
+      '....Vvvvvvvw....',
+      '....Vvvvwvvw....',
+      '.i..wwwwwwww..i.',
+      '.i............i.',
+      '.i............i.',
+      '.liii......iiil.',
+      '................'],
+    c_gps: [
+      '................',
+      '.liii......iiil.',
+      '.i............i.',
+      '.i............i.',
+      '.i..tttttttu..i.',
+      '....tTTaaTTu....',
+      '....tTaTTaTu....',
+      '....taTrrTau....',
+      '....taTeeTau....',
+      '....tTaTTaTu....',
+      '....tTTaaTTu....',
+      '.i..uuuuuuuu..i.',
+      '.i............i.',
+      '.i............i.',
+      '.liii......iiil.',
+      '................'],
+    c_gyroscope: [
+      '................',
+      '.liii......iiil.',
+      '.i............i.',
+      '.i............i.',
+      '.i..MMMMMMMn..i.',
+      '....Mmggggmn....',
+      '....Mgmmmmgn....',
+      '....gmmeemmg....',
+      '....gmmeemmg....',
+      '....Mgmmmmgn....',
+      '....Mmggggmn....',
+      '.i..nnnnnnnn..i.',
+      '.i............i.',
+      '.i............i.',
+      '.liii......iiil.',
+      '................'],
+  };
+
+  function draw(canvas, map, name){
+    const ctx = canvas.getContext('2d');
+    if (map.length !== 16) console.error(name + ': ' + map.length + ' rows');
+    map.forEach((row, y) => {
+      if (row.length !== 16) console.error(name + ' row ' + y + ': ' + row.length + ' columns');
+      for (let x = 0; x < 16; x++) {
+        const c = PAL[row[x]];
+        if (row[x] !== '.' && !c) console.error(name + ': unknown key ' + row[x]);
+        if (c) { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); }
+      }
+    });
+  }
+  document.querySelectorAll('canvas[data-icon]').forEach(c => draw(c, MAPS[c.dataset.icon], c.dataset.icon));
+
+  // the Mobile Core's item icon from MB-1 (the generator's cage over the heart with the teal cross), for the rows
+  function coreIcon(canvas){
+    const ctx = canvas.getContext('2d');
+    const px = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); };
+    for (let y=3;y<13;y++) for (let x=3;x<13;x++) { const d = x - y; px(x, y, (d===1 || d===2) ? PAL.V : PAL.v); }
+    for (let y=0;y<16;y++) for (let x=0;x<16;x++) { const bar = x<2 || x>13 || y<2 || y>13; if (bar) px(x, y, (x===0||x===15||y===0||y===15) ? PAL.d : PAL.i); }
+    for (const [x,y] of [[0,0],[15,0],[0,15],[15,15],[1,1],[14,1],[1,14],[14,14]]) px(x, y, PAL.l);
+    for (let i=5;i<11;i++){ px(i, 7, PAL.t); px(7, i, PAL.t); }
+  }
+  // BSP-Core's own icons, embedded so the page stands alone (copied from its textures/item folder when this page was written)
+  const CORE_ITEMS = {
+    tetrium_ingot: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAj0lEQVR42mNgGDLAXD3+PwiTpQmE61O2gbGrUfF/kjQdWP0GBWM1hJAmvIaANL2885+gJhgGqYWpBxsCsxWfITBNyBpBelQknBEGoBuCrinEtg2sEYRBbKwGwAzBpgmGkdXCDYCZCAtAfBpBciCNYM3IsQAzBJtzkTWhaESPSpghINpEJZqwJlyJiCRNAw4AK1NWAOZQyGEAAAAASUVORK5CYII=',
+    magnatite_ingot: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAj0lEQVR42mNgGDJAQVX3PwiTpQmEnX3jwFhD1/w/SZpSqheiYKyGENKE1xCQpvrN/wlqgmGQWph6sCEwW/EZAtOErBGkR0hMBmEAuiHomvRNHcEaQRjExmoAzBBsmmAYWS3cAJiJsADEpxEkB9II1owcCzBDsDkXWROKRvSohBkCouWUtAlrwpWISNI04AAAKoYMN5QcrGYAAAAASUVORK5CYII=',
+    basic_control_circuit: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAk0lEQVR42mNgGD5AVEHmPykYqwH6Xg7/r1nr/9f3dvxv4OP0X9fd9r+umy1YHMQHyRn6OuE2AKSAGEzQBSDbeATFUDDINWA5oOtwGgCSBCnSATobpAlmI4gNcjqIredpj8cFUANABqEbgOw6nAaATMflBVggggyiYSBCvQAKMJBrQFGo42YDZsO8gDcaKUpIQxcAAGPXyqxTpDh1AAAAAElFTkSuQmCC',
+  };
+  document.querySelectorAll('.inv[data-row]').forEach(row => {
+    const s = row.dataset.row;
+    const slot = el => { const d = document.createElement('span'); d.className = 'slot'; d.appendChild(el); row.appendChild(d); return d; };
+    for (const part of ['processor','gps','gyroscope']) {
+      const c = document.createElement('canvas'); c.width = 16; c.height = 16; draw(c, MAPS[s + '_' + part], s + '_' + part); slot(c);
+    }
+    const core = document.createElement('canvas'); core.width = 16; core.height = 16; coreIcon(core); slot(core);
+    for (const name of ['tetrium_ingot','magnatite_ingot','basic_control_circuit']) {
+      const img = document.createElement('img'); img.src = CORE_ITEMS[name]; img.alt = name; img.title = name + ' (BSP-Core)'; slot(img);
+    }
+  });
+
+  const pal = document.getElementById('pal');
+  for (const k of Object.keys(PAL)) {
+    const s = document.createElement('span'); s.innerHTML = '<i class="sw" style="background:' + PAL[k] + '"></i>' + k + ' ' + NAMES[k] + ' ' + PAL[k];
+    pal.appendChild(s);
+  }
+})();
+</script>
+</body>
+</html>

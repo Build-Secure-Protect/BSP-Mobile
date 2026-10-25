@@ -26,3 +26,19 @@ In game (survival unless said):
 8. Build a line of more than 200 blocks touching a core: the count turns red with "More than 200 blocks touch this core"; ASSEMBLE answers "Too many blocks for this tier."
 9. Place a second core touching the build: the first core's screen lists it in red as "another Mobile Core" and the construct assembles without it.
 10. On a server: `serverconfig/bsp_mobile-server.toml` appears with `tiers.allowance`, `gather.neverMobile` and `constructs.movingSpeed`.
+
+## 2026-10-25: MB-2, tiers, upgrades and the parts
+
+Headless: 12 GameTests pass (twice running), the four new ones: buying a tier takes the price with change (a buyer carrying one copper unit more than Tier II's price, as the largest coins, ends with Tier II and one copper unit); a short buyer is refused with "short" and keeps their coins; the top tier is refused with "top"; the four recipes exist, each fills nine slots and makes one item from the ingredients of D24. **Nothing of this task has run in a client.**
+
+In game (survival unless said; BSP-Core must be installed now):
+1. Remove BSP-Core from a test server: Forge refuses to start with a missing-dependency screen naming it (it is required since this task).
+2. In the crafting table: 4 Tetrium Ingots at the corners, 4 Redstone at the edges and a Diamond in the middle make a Mobile Core Processor; a Compass in the middle, 4 Tetrium Ingots at the edges and 4 Glass Panes at the corners make a Mobile Core GPS; 4 Magnatite Ingots at the edges, 4 Iron Bars at the corners and a Gold Ingot in the middle make a Mobile Core Gyroscope. Each shows its icon (a pinned violet chip, a handheld unit with an antenna and a teal screen, a blue gimbal on an iron base) and the tooltip line "A part of the Mobile Core."
+3. Iron Bars at the four corners, the GPS top-middle, the Processor left-middle, the Gyroscope right-middle, a Tetrium Ingot bottom-middle and an Amethyst Block in the middle make a Mobile Core ("Tier I"). The three parts and the core sit together in the Functional Blocks creative tab; the parts also appear in the recipe book.
+4. Place the core and open UPGRADE: the ladder shows Tier I "this core" and the prices on the rows above (6 Gold Shatter Coins, 3 Diamond, 2 Netherite, 1 Illyrium), the line "Coins carried: none" and the hint that not enough is carried; BUY TIER II is greyed.
+5. Take 1 Diamond Shatter Coin and 1 Gold Shatter Coin from BSP-Core's tab (worth 6 copper units; Tier II costs 12): still greyed. Add another Diamond coin (worth 10): still greyed. Add one more Gold coin (worth 12): the carried line turns teal and BUY TIER II lights up.
+6. Click BUY TIER II: it turns red "SURE? BUY TIER II" for three seconds; click again. "Upgraded. The allowance has grown." shows, the row moves to Tier II "this core", the CORE tab says "Allowance · Tier II" with 500 blocks, and the coins are gone (change in copper when you overpaid: give 1 Netherite and 1 Diamond coin, worth 12 for a 12 price, then 1 Netherite, 1 Diamond and 1 Copper, worth 13: 1 Copper stays).
+7. A second player standing at the same core with coins may buy Tier III (anyone at the core may buy).
+8. At Tier V the key reads "Top tier" and the hint says the core carries as much as a core can.
+9. Break the Tier II core: the dropped item says "Tier II"; placed again it keeps the tier and 500 blocks.
+10. On a server: `serverconfig/bsp_mobile-server.toml` gains `tiers.prices`; set an entry to `gold:1`, restart, and that step costs 1 Gold Shatter Coin; remove the list's last entry and Tier V's row shows no price and cannot be bought ("No price is set for this tier." when forced).

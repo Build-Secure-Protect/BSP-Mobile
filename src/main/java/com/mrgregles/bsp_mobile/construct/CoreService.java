@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * What the Mobile Core does, server side: the screen's data, assembling the gather into a construct, releasing it, and
- * renaming. Commands and screens go through here so they behave the same. Valkyrien Skies is reached only through the
+ * What the Mobile Core does, server side: the screen's data, assembling the gather into a construct, releasing it,
+ * renaming, and buying a tier. Commands and screens go through here so they behave the same. Valkyrien Skies is reached only through the
  * bridge; BSP-Core only through its adapter.
  */
 public final class CoreService {
@@ -89,9 +89,11 @@ public final class CoreService {
         int tier = be.tier();
         int nextAllowance = tier < Tiers.count() ? Tiers.allowance(tier + 1) : 0;
         boolean owner = be.owner() != null && be.owner().equals(player.getUUID());
+        boolean coins = BspCore.coinsAvailable();
+        int worth = coins ? BspCore.coinWorth(player) : 0;
         CoreViewPacket view = new CoreViewPacket(pos, open, be.name(), tier, gather.allowance(), gather.count(), gather.tooMany(),
                 state.ordinal(), c == null ? 0 : c.speed(), refused, kinds, aboard.totems, aboard.chests, aboard.machines,
-                be.ownerName(), owner, nextAllowance, Tiers.count(), note);
+                be.ownerName(), owner, nextAllowance, Tiers.count(), coins, Prices.ladder(), worth, coins ? Prices.breakdown(worth) : List.of(), note);
         MobileNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), view);
         long[] taken = gather.blocks().stream().mapToLong(BlockPos::asLong).toArray();
         long[] left = gather.refused().stream().mapToLong(r -> r.pos().asLong()).toArray();
@@ -219,6 +221,34 @@ public final class CoreService {
             moved.setShipId(0);
         }
         return new Outcome(true, "", shipId, corePos);
+    }
+
+    /**
+     * Buys the next tier for the core (D20, D23: whoever stands at the core pays, in BSP-Core's Shatter Coins, with
+     * change). Refused at the top tier, without BSP-Core's coins, without a price for the step, or when the buyer is short.
+     */
+    public static Outcome upgrade(ServerLevel level, BlockPos pos, ServerPlayer buyer) {
+        Optional<MobileCoreBlockEntity> core = core(level, pos);
+        if (core.isEmpty()) {
+            return Outcome.failed("no_core");
+        }
+        MobileCoreBlockEntity be = core.get();
+        int tier = be.tier();
+        if (tier >= Tiers.count()) {
+            return Outcome.failed("top");
+        }
+        if (!BspCore.coinsAvailable()) {
+            return Outcome.failed("no_coins");
+        }
+        Prices.Coins price = Prices.of(tier + 1);
+        if (price.isNone()) {
+            return Outcome.failed("price");
+        }
+        if (BspCore.coinWorth(buyer) < price.value() || !BspCore.pay(buyer, price.value())) {
+            return Outcome.failed("short");
+        }
+        be.setTier(tier + 1);
+        return new Outcome(true, "", be.shipId(), null);
     }
 
     public static Outcome rename(ServerLevel level, BlockPos pos, String name) {

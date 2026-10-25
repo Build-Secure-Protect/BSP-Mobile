@@ -4,6 +4,7 @@ import com.mrgregles.bsp_mobile.construct.ConstructState;
 import com.mrgregles.bsp_mobile.construct.Gather;
 import com.mrgregles.bsp_mobile.construct.MobileCoreBlockEntity;
 import com.mrgregles.bsp_mobile.construct.MobileCoreItem;
+import com.mrgregles.bsp_mobile.construct.Prices;
 import com.mrgregles.bsp_mobile.network.CoreActionPacket;
 import com.mrgregles.bsp_mobile.network.CoreViewPacket;
 import com.mrgregles.bsp_mobile.network.MobileNetwork;
@@ -27,7 +28,8 @@ import java.util.Locale;
  * closed until their tasks), drawn as the confirmed page {@code tools/preview/core_refined.html}. CORE: the name box,
  * the state, the allowance and tier, what was left out, the Aboard box, ASSEMBLE or RELEASE (release needs a second
  * click within three seconds) and SHOW OUTLINE. BLOCKS: the ledger of kinds with counts, refused kinds first in red.
- * UPGRADE: the tier ladder (buying comes with the next task). The server decides; this screen only shows and asks.
+ * UPGRADE: the tier ladder with each step's price, the coins the viewer carries, and BUY (a second click within three
+ * seconds confirms; the server takes the coins with change). The server decides; this screen only shows and asks.
  */
 public class CoreScreen extends Screen {
     static final int W = 320, H = 200;
@@ -173,6 +175,14 @@ public class CoreScreen extends Screen {
     private void openTab(int which) {
         tab = which;
         listScroll = 0;
+        sureUntil = 0;
+    }
+
+    /** The server's answer to the last action, for a few seconds above the keys. */
+    private void drawNote(GuiGraphics g, int x, int ky) {
+        if (System.currentTimeMillis() < noteUntil && Tr.has("note." + note)) {
+            Ui.text(g, font, Ui.fit(font, Tr.t("note." + note), W - 2 * PAD, TINY), x + PAD, ky - 9, note.startsWith("fail") ? Ui.BAD : Ui.OK, TINY);
+        }
     }
 
     private ConstructState state() {
@@ -281,10 +291,7 @@ public class CoreScreen extends Screen {
         int ox = kx + (sure ? 80 : 64) + 14 + (state == ConstructState.MOVING ? 40 : 0);
         Ui.ghostKey(g, font, Tr.t("key.outline"), ox, ky, 72, KEY_H, outlineOn ? Ui.TEAL : Ui.MUTED, SMALL);
         hits.add(new Ui.Hit(ox, ky, 72, KEY_H, () -> outlineOn = !outlineOn));
-        // the note from the server's last answer
-        if (System.currentTimeMillis() < noteUntil && Tr.has("note." + note)) {
-            Ui.text(g, font, Ui.fit(font, Tr.t("note." + note), W - 2 * PAD, TINY), x + PAD, ky - 9, note.startsWith("fail") ? Ui.BAD : Ui.OK, TINY);
-        }
+        drawNote(g, x, ky);
     }
 
     private void drawBlocks(GuiGraphics g, int x, int y) {
@@ -356,16 +363,70 @@ public class CoreScreen extends Screen {
             if (cur) {
                 String s = Tr.t("upgrade.this");
                 Ui.text(g, font, s, lx + lw - 8 - Ui.width(font, s, SMALL), ry + 4, Ui.TEAL, SMALL);
+            } else if (t > view.tier()) {
+                Prices.Coins p = price(t);
+                if (!p.isNone()) {
+                    String s = Ui.fit(font, coinsText(p), 120, SMALL);
+                    Ui.text(g, font, s, lx + lw - 8 - Ui.width(font, s, SMALL), ry + 4, t == view.tier() + 1 ? Ui.TEXT : Ui.MUTED, SMALL);
+                }
             }
         }
-        int fy = ly + tiers * rowH + 10;
-        for (String line : Ui.wrap(font, Tr.t("upgrade.soon"), lw, SMALL)) {
-            Ui.text(g, font, line, lx, fy, Ui.MUTED, SMALL);
-            fy += 9;
+        // the coins the viewer carries, and what the next step needs
+        boolean top = view.tier() >= tiers;
+        Prices.Coins next = top ? Prices.Coins.NONE : price(view.tier() + 1);
+        boolean enough = view.coins() && !next.isNone() && view.worth() >= next.value();
+        int fy = ly + tiers * rowH + 8;
+        String carried = view.carried().isEmpty() ? Tr.t("upgrade.carried_none") : Tr.t("upgrade.carried", carriedText(view.carried()));
+        Ui.text(g, font, Ui.fit(font, carried, lw, SMALL), lx, fy, enough ? Ui.TEAL : Ui.TEXT, SMALL);
+        fy += 10;
+        String hint = !view.coins() ? Tr.t("upgrade.no_coins") : top ? Tr.t("upgrade.at_top") : enough ? Tr.t("upgrade.enough") : Tr.t("upgrade.short");
+        for (String line : Ui.wrap(font, hint, lw, TINY)) {
+            Ui.text(g, font, line, lx, fy, Ui.MUTED, TINY);
+            fy += 7;
         }
+        // BUY, with SURE? (two clicks within three seconds, as RELEASE)
         int ky = y + H - PAD - KEY_H;
-        String key = view.tier() < tiers ? Tr.t("upgrade.key", MobileCoreItem.roman(view.tier() + 1)) : Tr.t("upgrade.top");
-        Ui.key(g, font, key, lx, ky, 100, KEY_H, Ui.DIM, 0xFF5A6270, SMALL);
+        String roman = MobileCoreItem.roman(Math.min(tiers, view.tier() + 1));
+        if (top) {
+            Ui.key(g, font, Tr.t("upgrade.top"), lx, ky, 100, KEY_H, Ui.DIM, 0xFF5A6270, SMALL);
+        } else if (!enough) {
+            Ui.key(g, font, Tr.t("upgrade.key", roman), lx, ky, 100, KEY_H, Ui.DIM, 0xFF5A6270, SMALL);
+        } else if (System.currentTimeMillis() < sureUntil) {
+            Ui.key(g, font, Tr.t("upgrade.sure", roman), lx, ky, 120, KEY_H, Ui.SURE_BG, Ui.SURE_FG, SMALL);
+            Ui.frame(g, lx, ky, 120, KEY_H, Ui.SURE_LINE);
+            hits.add(new Ui.Hit(lx, ky, 120, KEY_H, () -> {
+                sureUntil = 0;
+                send(CoreActionPacket.Action.UPGRADE, "");
+            }));
+        } else {
+            Ui.key(g, font, Tr.t("upgrade.key", roman), lx, ky, 100, KEY_H, Ui.TEAL, Ui.INK, SMALL);
+            hits.add(new Ui.Hit(lx, ky, 100, KEY_H, () -> sureUntil = System.currentTimeMillis() + SURE_MS));
+        }
+        drawNote(g, x, ky);
+    }
+
+    /** The price of reaching {@code tier}, from the view's ladder (Tier I to II first). */
+    private Prices.Coins price(int tier) {
+        int i = tier - 2;
+        return i < 0 || i >= view.prices().size() ? Prices.Coins.NONE : view.prices().get(i);
+    }
+
+    /** "6 Gold Shatter Coins", "1 Illyrium Shatter Coin". */
+    private static String coinsText(Prices.Coins c) {
+        String name = Tr.t("coin." + c.tier());
+        return c.count() == 1 ? Tr.t("coins.one", c.count(), name) : Tr.t("coins.many", c.count(), name);
+    }
+
+    /** "1 Diamond, 2 Gold" for the coins-carried line. */
+    private static String carriedText(List<Prices.Coins> list) {
+        StringBuilder sb = new StringBuilder();
+        for (Prices.Coins c : list) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(c.count()).append(' ').append(Tr.t("coin." + c.tier()));
+        }
+        return sb.toString();
     }
 
     private static String blockName(String id) {

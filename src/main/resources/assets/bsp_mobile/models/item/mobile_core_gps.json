@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "bsp_mobile:item/mobile_core_gps"
+  }
+}

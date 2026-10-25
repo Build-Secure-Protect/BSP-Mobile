@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "BMB",
+    "MGM",
+    "BMB"
+  ],
+  "key": {
+    "B": {
+      "item": "minecraft:iron_bars"
+    },
+    "M": {
+      "item": "bsp_core:magnatite_ingot"
+    },
+    "G": {
+      "item": "minecraft:gold_ingot"
+    }
+  },
+  "result": {
+    "item": "bsp_mobile:mobile_core_gyroscope",
+    "count": 1
+  }
+}

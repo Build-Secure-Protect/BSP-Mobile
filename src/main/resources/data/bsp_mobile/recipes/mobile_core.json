@@ -1,0 +1,33 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "BSB",
+    "PAY",
+    "BTB"
+  ],
+  "key": {
+    "B": {
+      "item": "minecraft:iron_bars"
+    },
+    "S": {
+      "item": "bsp_mobile:mobile_core_gps"
+    },
+    "P": {
+      "item": "bsp_mobile:mobile_core_processor"
+    },
+    "Y": {
+      "item": "bsp_mobile:mobile_core_gyroscope"
+    },
+    "T": {
+      "item": "bsp_core:tetrium_ingot"
+    },
+    "A": {
+      "item": "minecraft:amethyst_block"
+    }
+  },
+  "result": {
+    "item": "bsp_mobile:mobile_core",
+    "count": 1
+  }
+}

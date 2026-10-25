@@ -93,7 +93,7 @@ dependencies {
     // Kotlin for Forge, which Valkyrien Skies needs at runtime (the pack carries the same version).
     runtimeOnly "thedarkcolour:kotlinforforge:${kotlinforforge_version}"
 
-    // BSP-Core, optional at runtime: only compat/BspCore touches it, and only when the mod is loaded.
+    // BSP-Core, required at runtime (mods.toml): only compat/BspCore touches it, with guards for an older BSP-Core.
     compileOnly fg.deobf("blank:bsp-core:${bsp_core_version}")
     // Dev runs load it (the full jar, so they also get the MySQL driver BSP-Core ships).
     runtimeOnly fg.deobf("blank:bsp-core:${bsp_core_version}")

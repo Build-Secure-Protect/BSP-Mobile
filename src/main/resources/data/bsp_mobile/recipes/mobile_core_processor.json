@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "TRT",
+    "RDR",
+    "TRT"
+  ],
+  "key": {
+    "T": {
+      "item": "bsp_core:tetrium_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    }
+  },
+  "result": {
+    "item": "bsp_mobile:mobile_core_processor",
+    "count": 1
+  }
+}
