@@ -1,0 +1,43 @@
+package com.mrgregles.bsp_mobile.registry;
+
+import com.mrgregles.bsp_mobile.BSPMobile;
+import com.mrgregles.bsp_mobile.construct.MobileCoreBlock;
+import com.mrgregles.bsp_mobile.construct.MobileCoreBlockEntity;
+import com.mrgregles.bsp_mobile.construct.MobileCoreItem;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
+
+/** The mod's blocks, items and block entities. */
+public final class ModBlocks {
+    public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, BSPMobile.MODID);
+    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, BSPMobile.MODID);
+    public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, BSPMobile.MODID);
+
+    public static final RegistryObject<MobileCoreBlock> MOBILE_CORE = BLOCKS.register("mobile_core", MobileCoreBlock::new);
+    public static final RegistryObject<Item> MOBILE_CORE_ITEM = ITEMS.register("mobile_core", () -> new MobileCoreItem(MOBILE_CORE.get(), new Item.Properties()));
+    @SuppressWarnings("DataFlowIssue")
+    public static final RegistryObject<BlockEntityType<MobileCoreBlockEntity>> MOBILE_CORE_ENTITY = BLOCK_ENTITIES.register("mobile_core",
+            () -> BlockEntityType.Builder.of(MobileCoreBlockEntity::new, MOBILE_CORE.get()).build(null));
+
+    private ModBlocks() {}
+
+    public static void register(IEventBus modBus) {
+        BLOCKS.register(modBus);
+        ITEMS.register(modBus);
+        BLOCK_ENTITIES.register(modBus);
+        modBus.addListener(ModBlocks::onCreativeTabs);
+    }
+
+    private static void onCreativeTabs(BuildCreativeModeTabContentsEvent event) {
+        if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
+            event.accept(MOBILE_CORE_ITEM);
+        }
+    }
+}

@@ -1,0 +1,41 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "bsp_core:bank_atm",
+      "required": false
+    },
+    {
+      "id": "bsp_core:safety_deposit_box",
+      "required": false
+    },
+    {
+      "id": "bsp_core:land_office",
+      "required": false
+    },
+    {
+      "id": "bsp_core:vendor_post",
+      "required": false
+    },
+    {
+      "id": "bsp_core:market_stall",
+      "required": false
+    },
+    {
+      "id": "bsp_core:stall_display",
+      "required": false
+    },
+    {
+      "id": "bsp_core:score_screen",
+      "required": false
+    },
+    {
+      "id": "bsp_core:anti_totem",
+      "required": false
+    },
+    {
+      "id": "bsp_core:admin_rack",
+      "required": false
+    }
+  ]
+}

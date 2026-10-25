@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile Core Refined</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Set A refined for BSP-Mobile: the Gyro Cage (D13) with the default states (D14) and the tabbed screen (D16), drawn as
+   they will be built: the cage and the heart are a block model, the ring is drawn by a renderer so it can turn. Static
+   renders; the 16 x 16 faces are drawn pixel by pixel at 8x. Screens at 1.5x of 320 x 200 GUI pixels. Sample numbers. */
+:root{ --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --fg:#e8eaf0; --muted:#9aa3b5; --acc:#19d3b0; --board:#0b0d11;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace; color-scheme:dark; }
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; } }
+:root[data-theme="light"]{ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; }
+body{ background:var(--bg); color:var(--fg); font-family:var(--body); margin:0; font-size:14px; line-height:1.5; }
+.wrap{ max-width:1100px; margin:0 auto; padding:28px 16px 56px; display:flex; flex-direction:column; gap:28px; }
+h1{ font-size:clamp(22px,3.4vw,30px); margin:0; } h2{ font-size:18px; margin:0; color:var(--acc); } h3{ font-size:15px; margin:0; }
+.lede{ color:var(--muted); margin:0; max-width:78ch; }
+section{ display:flex; flex-direction:column; gap:14px; }
+.card{ background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.card p{ margin:0; font-size:13px; color:var(--muted); max-width:84ch; }
+.view3d{ width:100%; max-width:900px; aspect-ratio:3/1; background:radial-gradient(ellipse at 50% 80%,#262b36 0%,#0b0d11 70%); border-radius:4px; display:block; }
+.view3d.build{ aspect-ratio:2/1; }
+.states{ display:flex; max-width:900px; justify-content:space-around; font-size:12px; color:var(--muted); }
+.faces{ display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start; }
+.face{ display:flex; flex-direction:column; gap:6px; align-items:center; font-size:12px; color:var(--muted); }
+.face canvas{ width:128px; height:128px; image-rendering:pixelated; background:repeating-conic-gradient(#3a3f4b 0 25%,#262b36 0 50%) 0/16px 16px; border:1px solid var(--line); }
+.stage{ background:var(--board); border-radius:4px; padding:14px; display:flex; gap:14px; justify-content:flex-start; overflow-x:auto; align-items:flex-start; }
+ol{ margin:0; padding-left:22px; } ol li{ margin-bottom:8px; max-width:84ch; } ol b{ color:var(--fg); }
+.note{ font-size:12px; color:var(--muted); }
+.ctl{ display:flex; flex-wrap:wrap; gap:8px 10px; align-items:center; font-size:13px; }
+.tb{ font:600 11px var(--body); letter-spacing:.06em; text-transform:uppercase; background:var(--board); border:1px solid var(--line); color:var(--fg); padding:5px 10px; cursor:pointer; border-radius:3px; }
+.tb.on{ border-color:var(--acc); color:var(--acc); }
+
+/* ---------- the in-game palette ---------- */
+.scr{ --P:#10151C; --S:#0C0E12; --D:#2A2F3A; --M:#9AA3B5; --T:#E6EAF2; --V:#B58CFF; --Q:#19D3B0; --G:#FFD23A; --R:#FF6B5C; --OK:#8FE04A;
+  position:relative; background:var(--P); color:var(--T); font-family:var(--body); font-size:11px; line-height:1.3; box-sizing:border-box; flex:none;
+  display:flex; flex-direction:column; padding:10px 12px; gap:7px; overflow:hidden; width:480px; height:300px; box-shadow:0 0 0 1.5px var(--Q); }
+.hd{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.ttl{ font:600 12px Oswald,var(--body); letter-spacing:.12em; text-transform:uppercase; color:var(--Q); }
+.tabs{ display:flex; gap:4px; } .tab{ width:66px; height:19px; display:grid; place-items:center; background:var(--D); color:var(--M); font:600 9px Oswald,var(--body); letter-spacing:.08em; }
+.tab.on{ background:var(--Q); color:#10151C; } .tab.off{ opacity:.45; }
+.m{ color:var(--M); } .g{ color:var(--G); } .r{ color:var(--R); } .ok{ color:var(--OK); } .qq{ color:var(--Q); } .sm{ font-size:9px; } .b{ font-weight:600; }
+.box{ background:var(--S); box-shadow:inset 0 0 0 1px var(--D); }
+.keys{ display:flex; gap:6px; align-items:center; }
+.key{ height:24px; padding:0 12px; display:grid; place-items:center; font:700 9.5px Oswald,var(--body); letter-spacing:.08em; text-transform:uppercase; background:var(--D); color:var(--T); box-sizing:border-box; white-space:nowrap; }
+.key.q{ background:var(--Q); color:#10151C; } .key.g{ background:var(--G); color:#10151C; }
+.key.lock{ opacity:.4; } .key.sure{ background:#3a2a2a; color:#ff8f86; box-shadow:inset 0 0 0 1px #D63B2F; } .key.ghost{ background:transparent; box-shadow:inset 0 0 0 1px var(--D); color:var(--M); } .key.ghost.on{ box-shadow:inset 0 0 0 1px var(--Q); color:var(--Q); }
+.gap{ width:14px; flex:none; }
+.inp{ height:17px; background:var(--S); box-shadow:inset 0 0 0 1px var(--D); color:var(--T); font-size:9.5px; padding:0 5px; box-sizing:border-box; display:flex; align-items:center; white-space:nowrap; overflow:hidden; }
+.lbl{ font-size:8.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--M); }
+.row{ height:18px; display:flex; align-items:center; gap:6px; padding:0 6px; box-sizing:border-box; white-space:nowrap; overflow:hidden; }
+.row + .row{ border-top:1px solid #1c222c; }
+.row .n{ margin-left:auto; font:600 10px var(--mono); color:var(--Q); } .row.bad .n{ color:var(--R); } .row.bad{ color:#ffb3ad; }
+.row.cur{ background:#132a28; box-shadow:inset 2px 0 0 var(--Q); }
+.grow{ flex:1; min-height:0; min-width:0; }
+.hint{ font-size:9px; color:var(--M); }
+.chip{ font-size:9px; padding:2px 6px; background:var(--S); box-shadow:inset 0 0 0 1px var(--D); color:var(--T); }
+.chip.q{ box-shadow:inset 0 0 0 1px var(--Q); color:var(--Q); } .chip.g{ box-shadow:inset 0 0 0 1px var(--G); color:var(--G); }
+.pips{ display:inline-flex; gap:3px; } .pips i{ width:10px; height:6px; background:var(--D); display:block; } .pips i.on{ background:var(--Q); }
+.bar{ height:7px; background:var(--D); position:relative; } .bar i{ position:absolute; left:0; top:0; bottom:0; background:var(--Q); }
+.sb{ width:4px; background:var(--D); position:relative; flex:none; } .sb i{ position:absolute; left:0; right:0; background:var(--M); }
+.st{ display:none; } body[data-st="idle"] .st.idle, body[data-st="parked"] .st.parked, body[data-st="moving"] .st.moving{ display:contents; }
+</style>
+</head>
+<body data-st="idle">
+<div class="wrap">
+<header>
+  <h1>The Mobile Core, refined: the Gyro Cage and the tabbed screen</h1>
+  <p class="lede">The picks of set A (D13 to D19) drawn the way they will be built. Points R1 to R5 at the end are what to confirm before code. Nothing here is in the mod yet.</p>
+</header>
+
+<section>
+  <h2>R1. The block as a block model plus a renderer</h2>
+  <div class="card">
+    <h3>Twelve cage bars and a glass heart from a model, a ring from a renderer</h3>
+    <p>The cage is twelve bars 2 pixels thick along the cube's edges, a block model like any other, so it has a proper outline, lights and shadows and is cheap to draw. The heart is a 10-pixel translucent violet cube in the same model. The ring is not in the model: a block entity renderer draws it, so it can <b>turn while the construct moves</b> (one turn every two seconds) and stand still while parked; when not assembled it is dark grey and still. The heart glows full-bright whenever the construct exists. Left to right: not assembled, parked, moving.</p>
+    <canvas class="view3d" id="refined"></canvas>
+    <div class="states"><span>not assembled: grey ring, dim heart</span><span>parked: teal ring, lit heart</span><span>moving: gold ring, turning</span></div>
+  </div>
+  <div class="card">
+    <h3>In a build</h3>
+    <p>The core set into a planks-and-stone hull as a player would place it (D15: anywhere, a full cube). Its open faces show the heart through the cage from every side, so a parked base shows a teal glow where its core is.</p>
+    <canvas class="view3d build" id="inbuild"></canvas>
+  </div>
+  <div class="card">
+    <h3>The faces at 16 x 16 (from the texture generator)</h3>
+    <p>What <code>tools/gen_core_assets.py</code> will write. The cage face is the same on all six sides: bars at the edges with a lighter rivet pixel at each corner, open in the middle (the checker is transparency). The heart face is violet glass with a diagonal highlight; the renderer brightens it when lit. The item icon is the cage face over the heart face.</p>
+    <div class="faces">
+      <div class="face"><canvas id="faceCage" width="16" height="16"></canvas><span>cage face (all sides)</span></div>
+      <div class="face"><canvas id="faceHeart" width="16" height="16"></canvas><span>heart face</span></div>
+      <div class="face"><canvas id="faceIcon" width="16" height="16"></canvas><span>item icon</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>R2 to R5. The screen: three tabs</h2>
+  <div class="ctl"><span class="note">State:</span>
+    <button class="tb on" data-st="idle">Not assembled</button>
+    <button class="tb" data-st="parked">Parked</button>
+    <button class="tb" data-st="moving">Moving</button>
+  </div>
+  <div class="card">
+    <h3>CORE</h3>
+    <p>The name box (D18), the state chip, the allowance with the tier, what the gather left out in red, and the Aboard box: totems, chests and machines counted by the gather, the owner, the helm's state. Keys in two groups: ASSEMBLE or RELEASE (release only while parked, a second click within three seconds; while moving it is greyed with "stop first"), then SHOW OUTLINE, a toggle that is on by default while the screen is open (D17).</p>
+    <div class="stage">
+      <div class="scr">
+        <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab on">Core</span><span class="tab">Blocks</span><span class="tab">Upgrade</span><span class="tab off">Helm</span><span class="tab off">Plan</span></span></div>
+        <div style="display:flex;gap:8px;align-items:center"><span class="lbl">Name</span><span class="inp" style="width:170px">Harbour Lantern</span>
+          <span class="st idle"><span class="chip">Not assembled</span></span>
+          <span class="st parked"><span class="chip q">Parked</span></span>
+          <span class="st moving"><span class="chip g">Moving · 6.2 blocks/s</span></span>
+        </div>
+        <div class="grow" style="display:flex;gap:10px">
+          <div class="box grow" style="padding:8px 10px;display:flex;flex-direction:column;gap:5px">
+            <div class="lbl">Allowance · Tier I</div>
+            <div style="display:flex;align-items:baseline;gap:6px"><span style="font:600 22px Oswald;line-height:1">143</span><span class="m">of 200 blocks</span></div>
+            <div class="bar"><i style="width:71%"></i></div>
+            <div class="r sm">Left out: bedrock 1, Anti Totem Block 1</div>
+            <div class="st idle"><div class="sm m">Blocks touching this core, counted now. The outline shows them.</div></div>
+            <div class="st parked"><div class="sm m">The construct's blocks. Build onto it and the count follows.</div></div>
+            <div class="st moving"><div class="sm m">The construct's blocks.</div></div>
+          </div>
+          <div class="box" style="width:170px;padding:8px 10px;display:flex;flex-direction:column;gap:5px">
+            <div class="lbl">Aboard</div>
+            <div class="sm">1 Shatter Totem <span class="g">· slowed while aboard</span></div>
+            <div class="sm">6 chests · 2 machines</div>
+            <div class="sm m">Owner: Mrgregles</div>
+            <div class="sm m">Helm: open to anyone</div>
+          </div>
+        </div>
+        <div class="keys">
+          <span class="st idle"><span class="key q">Assemble</span></span>
+          <span class="st parked"><span class="key">Release</span><span class="hint">a second click within 3 s: SURE?</span></span>
+          <span class="st moving"><span class="key lock">Release</span><span class="hint">stop first</span></span>
+          <span class="gap"></span>
+          <span class="key ghost on">Show outline</span>
+        </div>
+      </div>
+      <div class="scr" style="width:300px;height:300px;justify-content:center;align-items:center;background:#0b0d11;box-shadow:none">
+        <div class="box" style="width:240px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;box-shadow:inset 0 0 0 1px #D63B2F">
+          <div class="lbl" style="color:#ff8f86">After the first click on RELEASE</div>
+          <div class="keys"><span class="key sure">Sure? Release</span><span class="hint">3 s</span></div>
+          <div class="sm m">The blocks go back into the world where the construct stands, turned to the nearest 90 degrees (D19).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>BLOCKS</h3>
+    <p>The ledger: one row per kind, with its count, the refused kinds first in red with the reason, the rest by count. Scrolls with the wheel; a bar on the right shows where you are. The same list before assembly (the gather) and after (the construct).</p>
+    <div class="stage">
+      <div class="scr">
+        <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab">Core</span><span class="tab on">Blocks</span><span class="tab">Upgrade</span><span class="tab off">Helm</span><span class="tab off">Plan</span></span></div>
+        <div style="display:flex;justify-content:space-between"><span class="lbl">What the core takes · 143 of 200 · 14 kinds</span><span class="lbl r">2 left out</span></div>
+        <div class="grow" style="display:flex;gap:6px">
+          <div class="grow box" style="display:flex;flex-direction:column">
+            <div class="row bad"><span>Bedrock · cannot move</span><span class="n">1</span></div>
+            <div class="row bad"><span>Anti Totem Block · admin block</span><span class="n">1</span></div>
+            <div class="row"><span>Oak Planks</span><span class="n">64</span></div>
+            <div class="row"><span>Stone Bricks</span><span class="n">38</span></div>
+            <div class="row"><span>Glass</span><span class="n">16</span></div>
+            <div class="row"><span>Torch</span><span class="n">12</span></div>
+            <div class="row"><span>Chest</span><span class="n">6</span></div>
+            <div class="row"><span>Oak Door</span><span class="n">4</span></div>
+            <div class="row"><span>Mechanical Press</span><span class="n">1</span></div>
+            <div class="row"><span>Basic Energy Cube</span><span class="n">1</span></div>
+            <div class="row"><span>Shatter Totem</span><span class="n">1</span></div>
+          </div>
+          <div class="sb"><i style="top:0;height:62%"></i></div>
+        </div>
+        <div class="sm m">Blocks the gather refuses: bedrock, another Mobile Core, admin blocks, Anti Totem blocks, and blocks Valkyrien Skies lists as unmovable.</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>UPGRADE</h3>
+    <p>The tier ladder with the allowance per tier and the price of each step in Shatter Coins (D4; prices are samples until the config is set), the current tier marked, the coins carried, and BUY on the next tier with a second click to confirm. Buying uses BSP-Core's coins in the inventory; without BSP-Core the tab says upgrades need it.</p>
+    <div class="stage">
+      <div class="scr">
+        <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab">Core</span><span class="tab">Blocks</span><span class="tab on">Upgrade</span><span class="tab off">Helm</span><span class="tab off">Plan</span></span></div>
+        <div class="lbl">The tier ladder · prices are samples until the config is set</div>
+        <div class="grow box" style="display:flex;flex-direction:column">
+          <div class="row cur" style="height:22px"><span class="pips"><i class="on"></i><i></i><i></i><i></i><i></i></span><span class="b">Tier I</span><span class="m">200 blocks</span><span class="n qq">this core</span></div>
+          <div class="row" style="height:22px"><span class="pips"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span><span class="b">Tier II</span><span class="m">500 blocks</span><span class="n g">6 Gold</span></div>
+          <div class="row" style="height:22px"><span class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span><span class="b">Tier III</span><span class="m">1,200 blocks</span><span class="n g">3 Diamond</span></div>
+          <div class="row" style="height:22px"><span class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span><span class="b">Tier IV</span><span class="m">2,500 blocks</span><span class="n g">2 Netherite</span></div>
+          <div class="row" style="height:22px"><span class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span><span class="b">Tier V</span><span class="m">5,000 blocks</span><span class="n g">1 Illyrium</span></div>
+        </div>
+        <div class="sm m">You carry 9 Gold and 2 Diamond Shatter Coins.</div>
+        <div class="keys"><span class="key g">Buy Tier II · 6 Gold</span><span class="hint">a second click within three seconds confirms</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Points to confirm (defaults first)</h2>
+  <ol>
+    <li><b>R1, how the block is drawn.</b> Default: the cage and the heart are a block model, the ring comes from a renderer that turns it while moving and holds it still while parked, the heart glows full-bright whenever the construct exists. Or everything in the model, the ring fixed and never turning, no renderer.</li>
+    <li><b>R2, what the block is like.</b> Default: the same from every side (no facing); as hard to mine as an iron block; it drops itself and the item keeps the construct's name and tier; pistons cannot move it; a second core inside the gather is refused as "another Mobile Core". Or a lighter block, mined like planks, that pistons may push.</li>
+    <li><b>R3, the textures.</b> Default: the cage face, the heart face and the item icon come from <code>tools/gen_core_assets.py</code> as drawn above, in the palette's iron grey and violet. Or hand-drawn textures from the owner later, with the generated ones as stand-ins.</li>
+    <li><b>R4, the CORE tab.</b> Default: as drawn: name, state chip, allowance and tier, what was left out, the Aboard box, ASSEMBLE or RELEASE with SURE?, SHOW OUTLINE on by default. Or without the Aboard box, giving the allowance the whole width.</li>
+    <li><b>R5, the gather's refusals.</b> Default: bedrock, another Mobile Core, BSP-Core's admin blocks and Anti Totem blocks, and anything Valkyrien Skies lists as unmovable, each shown in red with its reason. Or only bedrock and other cores refused, everything else taken.</li>
+  </ol>
+</section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  const PAL = { steel:0x2a2f3a, iron:0x5b6270, ironLight:0x8a93a3, teal:0x19d3b0, gold:0xffd23a, violet:0xb58cff, violetDeep:0x6b4ea8, dim:0x4a5160, planks:0x8a6a3a, stone:0x6e7380 };
+  function mat(c, o){ return new THREE.MeshStandardMaterial(Object.assign({ color:c, roughness:.75, metalness:.25 }, o||{})); }
+  function glow(c, s){ return new THREE.MeshStandardMaterial({ color:c, emissive:c, emissiveIntensity:s, roughness:.4, metalness:0 }); }
+  function box(w,h,d,m,x,y,z){ const g = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m); g.position.set(x||0,y||0,z||0); return g; }
+  function stateColour(s){ return s===0 ? PAL.dim : s===1 ? PAL.teal : PAL.gold; }
+
+  function gyroCage(state, ringAngle){
+    const g = new THREE.Group();
+    const frame = mat(PAL.iron,{metalness:.5, roughness:.5});
+    const e = 2/16, h = 0.5 - e/2;
+    for (const a of [-h,h]) for (const b of [-h,h]) { g.add(box(1,e,e,frame, 0,a,b)); g.add(box(e,1,e,frame, a,0,b)); g.add(box(e,e,1,frame, a,b,0)); }
+    const rivet = mat(PAL.ironLight,{metalness:.6, roughness:.4});
+    for (const a of [-h,h]) for (const b of [-h,h]) for (const c of [-h,h]) g.add(box(e*1.15,e*1.15,e*1.15,rivet, a,b,c));
+    const lit = state > 0;
+    g.add(box(10/16,10/16,10/16, new THREE.MeshStandardMaterial({ color: lit ? PAL.violet : PAL.violetDeep, emissive:PAL.violet, emissiveIntensity: lit ? 0.6 : 0.08, transparent:true, opacity: lit ? 0.72 : 0.5, roughness:.2 })));
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.045, 10, 40), glow(stateColour(state), state===0 ? 0.05 : state===1 ? 0.9 : 1.1));
+    ring.rotation.x = Math.PI/3; ring.rotation.y = Math.PI/5 + (ringAngle||0); g.add(ring);
+    return g;
+  }
+
+  function scene(canvas, ortho){
+    const w = canvas.clientWidth || 900, hgt = canvas.clientHeight || 300;
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2)); renderer.setSize(w, hgt, false);
+    const sc = new THREE.Scene();
+    const cam = new THREE.OrthographicCamera(-ortho, ortho, ortho*hgt/w, -ortho*hgt/w, 0.1, 100);
+    cam.position.set(4, 3.2, 5); cam.lookAt(0, 0, 0);
+    sc.add(new THREE.AmbientLight(0xffffff, 0.55));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(3,6,4); sc.add(sun);
+    const fill = new THREE.DirectionalLight(0x8899bb, 0.35); fill.position.set(-4,2,-3); sc.add(fill);
+    return { renderer, sc, cam };
+  }
+
+  // the three states, close up
+  (function(){
+    const { renderer, sc, cam } = scene(document.getElementById('refined'), 2.6);
+    [0,1,2].forEach((state,i)=>{ const b = gyroCage(state, state===2 ? 0.8 : 0); b.position.set((i-1)*1.9, 0, 0); b.rotation.y = -Math.PI/8; sc.add(b); });
+    renderer.render(sc, cam);
+  })();
+
+  // in a build: a hull of planks and stone bricks with the core set in the deck, parked
+  (function(){
+    const { renderer, sc, cam } = scene(document.getElementById('inbuild'), 4.2);
+    const planks = mat(PAL.planks,{roughness:.9, metalness:0}), stone = mat(PAL.stone,{roughness:.9, metalness:0});
+    for (let x=-3;x<=3;x++) for (let z=-2;z<=2;z++) {
+      const edge = Math.abs(x)===3 || Math.abs(z)===2;
+      sc.add(box(0.98,0.98,0.98, edge ? stone : planks, x*1.02, -1.02, z*1.02));
+      if (edge) sc.add(box(0.98,0.98,0.98, stone, x*1.02, 0, z*1.02));
+    }
+    const core = gyroCage(1, 0); core.position.set(0, 0, 0); sc.add(core);
+    sc.add(box(0.98,0.98,0.98, planks, 1.02, 0, 0)); sc.add(box(0.98,0.98,0.98, planks, -1.02, 0, 1.02));
+    renderer.render(sc, cam);
+  })();
+
+  // the 16 x 16 faces
+  function px(ctx, x, y, c){ ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); }
+  const IRON = '#5b6270', IRON_D = '#3b4250', IRON_L = '#8a93a3', VIO = '#6b4ea8', VIO_L = '#b58cff', VIO_D = '#4a3576';
+  (function cage(){
+    const ctx = document.getElementById('faceCage').getContext('2d');
+    for (let y=0;y<16;y++) for (let x=0;x<16;x++) {
+      const bar = x<2 || x>13 || y<2 || y>13;
+      if (!bar) continue;
+      const outer = x===0 || x===15 || y===0 || y===15;
+      px(ctx, x, y, outer ? IRON_D : IRON);
+    }
+    for (const [x,y] of [[0,0],[15,0],[0,15],[15,15],[1,1],[14,1],[1,14],[14,14]]) px(ctx, x, y, IRON_L);
+    for (const x of [7,8]) { px(ctx, x, 0, IRON_L); px(ctx, x, 15, IRON_L); px(ctx, 0, x, IRON_L); px(ctx, 15, x, IRON_L); }
+  })();
+  function heart(ctx){
+    for (let y=0;y<16;y++) for (let x=0;x<16;x++) {
+      const edge = x===0 || x===15 || y===0 || y===15;
+      const d = x - y;
+      px(ctx, x, y, edge ? VIO_D : (d===3 || d===4 || d===-6) ? VIO_L : (d===5 || d===-5) ? '#8f6fd0' : VIO);
+    }
+  }
+  heart(document.getElementById('faceHeart').getContext('2d'));
+  (function icon(){
+    const ctx = document.getElementById('faceIcon').getContext('2d');
+    for (let y=3;y<13;y++) for (let x=3;x<13;x++) { const d = x - y; px(ctx, x, y, (d===1 || d===2) ? VIO_L : VIO); }
+    for (let y=0;y<16;y++) for (let x=0;x<16;x++) { const bar = x<2 || x>13 || y<2 || y>13; if (bar) px(ctx, x, y, (x===0||x===15||y===0||y===15) ? IRON_D : IRON); }
+    for (const [x,y] of [[0,0],[15,0],[0,15],[15,15],[1,1],[14,1],[1,14],[14,14]]) px(ctx, x, y, IRON_L);
+    for (let i=5;i<11;i++){ px(ctx, i, 7, '#19d3b0'); px(ctx, 7, i, '#19d3b0'); }
+  })();
+
+  document.querySelectorAll('.tb[data-st]').forEach(b => b.addEventListener('click', () => {
+    document.body.dataset.st = b.dataset.st;
+    document.querySelectorAll('.tb[data-st]').forEach(x => x.classList.toggle('on', x === b));
+  }));
+})();
+</script>
+</body>
+</html>

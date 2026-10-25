@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile Core Screen Concepts</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Set A for BSP-Mobile, A2: the Mobile Core's screen (teal: a player's screen), layouts A B C. Drawn at 1.5x the in-game
+   GUI size: a 320 x 200 panel becomes 480 x 300 here. The numbers are sample data: Tier I's allowance of 200 blocks is
+   D4's proposed figure, every price is a placeholder until the config is set. Static snapshots; the state buttons swap
+   which snapshot shows. */
+:root{ --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --fg:#e8eaf0; --muted:#9aa3b5; --acc:#19d3b0; --board:#0b0d11;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace; color-scheme:dark; }
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; } }
+:root[data-theme="light"]{ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; }
+body{ background:var(--bg); color:var(--fg); font-family:var(--body); margin:0; font-size:14px; line-height:1.5; }
+.wrap{ max-width:1100px; margin:0 auto; padding:28px 16px 56px; display:flex; flex-direction:column; gap:28px; }
+h1{ font-size:clamp(22px,3.4vw,30px); margin:0; } h2{ font-size:18px; margin:0; color:var(--acc); } h3{ font-size:15px; margin:0; }
+.lede{ color:var(--muted); margin:0; max-width:78ch; }
+section{ display:flex; flex-direction:column; gap:14px; }
+.card{ background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.card p{ margin:0; font-size:13px; color:var(--muted); max-width:84ch; }
+.stage{ background:var(--board); border-radius:4px; padding:14px; display:flex; gap:14px; justify-content:flex-start; overflow-x:auto; align-items:flex-start; }
+ol{ margin:0; padding-left:22px; } ol li{ margin-bottom:8px; max-width:84ch; } ol b{ color:var(--fg); }
+.note{ font-size:12px; color:var(--muted); }
+.ctl{ display:flex; flex-wrap:wrap; gap:8px 10px; align-items:center; font-size:13px; }
+.tb{ font:600 11px var(--body); letter-spacing:.06em; text-transform:uppercase; background:var(--board); border:1px solid var(--line); color:var(--fg); padding:5px 10px; cursor:pointer; border-radius:3px; }
+.tb.on{ border-color:var(--acc); color:var(--acc); }
+
+/* ---------- the in-game palette ---------- */
+.scr{ --P:#10151C; --S:#0C0E12; --D:#2A2F3A; --M:#9AA3B5; --T:#E6EAF2; --V:#B58CFF; --Q:#19D3B0; --G:#FFD23A; --R:#FF6B5C; --OK:#8FE04A;
+  position:relative; background:var(--P); color:var(--T); font-family:var(--body); font-size:11px; line-height:1.3; box-sizing:border-box; flex:none;
+  display:flex; flex-direction:column; padding:10px 12px; gap:7px; overflow:hidden; width:480px; height:300px; box-shadow:0 0 0 1.5px var(--Q); }
+.hd{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.ttl{ font:600 12px Oswald,var(--body); letter-spacing:.12em; text-transform:uppercase; color:var(--Q); }
+.tabs{ display:flex; gap:4px; } .tab{ width:66px; height:19px; display:grid; place-items:center; background:var(--D); color:var(--M); font:600 9px Oswald,var(--body); letter-spacing:.08em; }
+.tab.on{ background:var(--Q); color:#10151C; } .tab.off{ opacity:.45; }
+.m{ color:var(--M); } .g{ color:var(--G); } .r{ color:var(--R); } .ok{ color:var(--OK); } .qq{ color:var(--Q); } .sm{ font-size:9px; } .b{ font-weight:600; } .up{ text-transform:uppercase; letter-spacing:.08em; }
+.box{ background:var(--S); box-shadow:inset 0 0 0 1px var(--D); }
+.keys{ display:flex; gap:6px; align-items:center; }
+.key{ height:24px; padding:0 12px; display:grid; place-items:center; font:700 9.5px Oswald,var(--body); letter-spacing:.08em; text-transform:uppercase; background:var(--D); color:var(--T); box-sizing:border-box; white-space:nowrap; }
+.key.q{ background:var(--Q); color:#10151C; } .key.g{ background:var(--G); color:#10151C; }
+.key.lock{ opacity:.4; } .key.warn{ background:#3a2a2a; color:#ff8f86; box-shadow:inset 0 0 0 1px #D63B2F; } .key.ghost{ background:transparent; box-shadow:inset 0 0 0 1px var(--D); color:var(--M); }
+.gap{ width:14px; flex:none; }
+.inp{ height:17px; background:var(--S); box-shadow:inset 0 0 0 1px var(--D); color:var(--T); font-size:9.5px; padding:0 5px; box-sizing:border-box; display:flex; align-items:center; white-space:nowrap; overflow:hidden; }
+.lbl{ font-size:8.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--M); }
+.row{ height:18px; display:flex; align-items:center; gap:6px; padding:0 6px; box-sizing:border-box; white-space:nowrap; overflow:hidden; }
+.row + .row{ border-top:1px solid #1c222c; }
+.row .n{ margin-left:auto; font:600 10px var(--mono); color:var(--Q); } .row.bad .n{ color:var(--R); } .row.bad{ color:#ffb3ad; }
+.grow{ flex:1; min-height:0; min-width:0; }
+.hint{ font-size:9px; color:var(--M); }
+.chip{ font-size:9px; padding:2px 6px; background:var(--S); box-shadow:inset 0 0 0 1px var(--D); color:var(--T); }
+.chip.q{ box-shadow:inset 0 0 0 1px var(--Q); color:var(--Q); } .chip.g{ box-shadow:inset 0 0 0 1px var(--G); color:var(--G); } .chip.r{ box-shadow:inset 0 0 0 1px var(--R); color:var(--R); }
+.pips{ display:inline-flex; gap:3px; } .pips i{ width:10px; height:6px; background:var(--D); display:block; } .pips i.on{ background:var(--Q); }
+.bar{ height:7px; background:var(--D); position:relative; } .bar i{ position:absolute; left:0; top:0; bottom:0; background:var(--Q); }
+.bar.full i{ background:var(--R); }
+.gauge{ width:150px; height:150px; margin:0 auto; position:relative; display:grid; place-items:center; }
+.gauge .num{ font:600 26px Oswald,var(--body); color:var(--T); line-height:1; } .gauge .of{ font-size:9px; color:var(--M); letter-spacing:.08em; text-transform:uppercase; }
+.gauge .c{ text-align:center; display:flex; flex-direction:column; gap:2px; align-items:center; }
+/* the three states */
+.st{ display:none; } body[data-st="idle"] .st.idle, body[data-st="parked"] .st.parked, body[data-st="moving"] .st.moving{ display:contents; }
+.ladder .row{ height:22px; }
+.ladder .row.cur{ background:#132a28; box-shadow:inset 2px 0 0 var(--Q); }
+</style>
+</head>
+<body data-st="idle">
+<div class="wrap">
+<header>
+  <h1>The Mobile Core: three screen layouts</h1>
+  <p class="lede">Set A of the mock-ups, part 2. Right-clicking the Mobile Core opens this screen (teal: a player's screen). It must do four things: show what the core will take (the gather from D3, counted against the allowance of the tier from D4), name the blocks it refuses (bedrock, another core, admin blocks, Anti Totem blocks), assemble and release the construct, and buy the next tier in Shatter Coins. The helm lock (D5) and flight plans (D12) come later and are shown as closed tabs or greyed keys so the layout already has room for them. Three states: <b>not assembled</b> (the gather has counted the blocks), <b>parked</b>, <b>moving</b> (the screen still opens but releasing is refused). 1.5x the in-game size; the panel is 320 x 200 GUI pixels, which fits the smallest window the rules name.</p>
+</header>
+
+<div class="ctl"><span class="note">State:</span>
+  <button class="tb on" data-st="idle">Not assembled</button>
+  <button class="tb" data-st="parked">Parked</button>
+  <button class="tb" data-st="moving">Moving</button>
+</div>
+
+<section>
+  <h2>A2. The screen</h2>
+
+  <div class="card">
+    <h3>Layout A: the gauge</h3>
+    <p>One big ring in the middle: the blocks the gather counted against the allowance, with the tier under it. The construct's name above, the state as a chip. The refused blocks are one line under the ring, in red, with the count. Keys in two groups with a gap: ASSEMBLE or RELEASE on the left, UPGRADE on the right. The simplest screen; the block list lives behind the BLOCKS key as a second page.</p>
+    <div class="stage">
+      <div class="scr">
+        <div class="hd"><span class="ttl">Mobile core</span>
+          <span class="st idle"><span class="chip">Not assembled</span></span>
+          <span class="st parked"><span class="chip q">Parked</span></span>
+          <span class="st moving"><span class="chip g">Moving · 6.2 blocks/s</span></span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center"><span class="lbl">Name</span><span class="inp" style="width:170px">Harbour Lantern</span><span class="hint">click to rename</span></div>
+        <div class="grow" style="display:flex;gap:14px;align-items:center">
+          <div class="gauge">
+            <svg width="150" height="150" viewBox="0 0 150 150" style="position:absolute;inset:0">
+              <circle cx="75" cy="75" r="62" fill="none" stroke="#2A2F3A" stroke-width="10"/>
+              <circle cx="75" cy="75" r="62" fill="none" stroke="#19D3B0" stroke-width="10" stroke-dasharray="389.6" stroke-dashoffset="111" transform="rotate(-90 75 75)" stroke-linecap="butt"/>
+            </svg>
+            <div class="c"><div class="num">143</div><div class="of">of 200 blocks</div><div class="sm m">Tier I</div></div>
+          </div>
+          <div class="grow" style="display:flex;flex-direction:column;gap:8px">
+            <div class="box" style="padding:7px 9px;display:flex;flex-direction:column;gap:4px">
+              <div class="lbl">The gather</div>
+              <div>143 blocks touch this core.</div>
+              <div class="r sm">Left out: 2 (bedrock 1, Anti Totem Block 1)</div>
+              <div class="sm m">The outline shows them in the world while this screen is open.</div>
+            </div>
+            <div class="box" style="padding:7px 9px;display:flex;flex-direction:column;gap:4px">
+              <div class="lbl">Next tier</div>
+              <div>Tier II carries 500 blocks.</div>
+              <div class="sm g">Costs 6 Gold Shatter Coins (sample price)</div>
+            </div>
+          </div>
+        </div>
+        <div class="keys">
+          <span class="st idle"><span class="key q">Assemble</span></span>
+          <span class="st parked"><span class="key">Release</span></span>
+          <span class="st moving"><span class="key lock">Release</span><span class="hint">stop first</span></span>
+          <span class="key ghost">Blocks</span>
+          <span class="gap"></span>
+          <span class="key g">Upgrade</span>
+          <span class="gap"></span>
+          <span class="key ghost lock">Helm lock</span><span class="key ghost lock">Flight plan</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Layout B: the ledger</h3>
+    <p>Two columns. Left, the construct's card: its name, the tier as five pips, the allowance as a bar, the state, and the keys under it. Right, the ledger: one row per kind of block the gather counted, with its count, the refused kinds in red at the top so the player sees at once what holds the assembly back. Scrolls when a build has many kinds. The screen that tells the most; the one a builder with a big base will want.</p>
+    <div class="stage">
+      <div class="scr">
+        <div class="hd"><span class="ttl">Mobile core</span><span class="hint">right-click the core to open</span></div>
+        <div class="grow" style="display:flex;gap:10px">
+          <div style="width:190px;display:flex;flex-direction:column;gap:6px">
+            <div class="lbl">Name</div><div class="inp">Harbour Lantern</div>
+            <div style="display:flex;justify-content:space-between;align-items:center"><span class="lbl">Tier I</span><span class="pips"><i class="on"></i><i></i><i></i><i></i><i></i></span></div>
+            <div class="bar"><i style="width:71%"></i></div>
+            <div class="sm"><span class="b">143</span> <span class="m">of 200 blocks</span></div>
+            <div class="lbl" style="margin-top:3px">State</div>
+            <div class="st idle"><div>Not assembled. The blocks stand in the world.</div></div>
+            <div class="st parked"><div class="qq">Parked. Open the helm to move.</div></div>
+            <div class="st moving"><div class="g">Moving at 6.2 blocks a second.</div></div>
+            <div class="grow"></div>
+            <div class="keys">
+              <span class="st idle"><span class="key q">Assemble</span></span>
+              <span class="st parked"><span class="key">Release</span></span>
+              <span class="st moving"><span class="key lock">Release</span></span>
+              <span class="gap"></span><span class="key g">Upgrade</span>
+            </div>
+            <div class="keys"><span class="key ghost lock sm" style="height:18px;padding:0 7px;font-size:8.5px">Helm lock</span><span class="key ghost lock sm" style="height:18px;padding:0 7px;font-size:8.5px">Flight plan</span></div>
+          </div>
+          <div class="grow box" style="display:flex;flex-direction:column">
+            <div class="row"><span class="lbl">What the core takes</span><span class="n m" style="font-weight:400">count</span></div>
+            <div class="row bad"><span>Bedrock · left out</span><span class="n">1</span></div>
+            <div class="row bad"><span>Anti Totem Block · left out</span><span class="n">1</span></div>
+            <div class="row"><span>Oak Planks</span><span class="n">64</span></div>
+            <div class="row"><span>Stone Bricks</span><span class="n">38</span></div>
+            <div class="row"><span>Glass</span><span class="n">16</span></div>
+            <div class="row"><span>Chest</span><span class="n">6</span></div>
+            <div class="row"><span>Mechanical Press</span><span class="n">1</span></div>
+            <div class="row"><span>Basic Energy Cube</span><span class="n">1</span></div>
+            <div class="row"><span>Shatter Totem</span><span class="n">1</span></div>
+            <div class="row"><span>Oak Door</span><span class="n">4</span></div>
+            <div class="row"><span>Torch</span><span class="n">12</span></div>
+            <div class="row m sm"><span>and 3 more kinds</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Layout C: tabs</h3>
+    <p>BSP-Core's shape: tabs along the top, CORE, BLOCKS, UPGRADE, HELM, PLAN (the last two closed until their tasks). CORE is the summary with the keys; BLOCKS the ledger; UPGRADE shows the whole tier ladder with every price, the current tier marked, and BUY on the next one. The same screen later takes the helm lock and the flight plan as tabs without moving anything. Shown: the CORE tab and the UPGRADE tab.</p>
+    <div class="stage">
+      <div class="scr">
+        <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab on">Core</span><span class="tab">Blocks</span><span class="tab">Upgrade</span><span class="tab off">Helm</span><span class="tab off">Plan</span></span></div>
+        <div style="display:flex;gap:8px;align-items:center"><span class="lbl">Name</span><span class="inp" style="width:170px">Harbour Lantern</span>
+          <span class="st idle"><span class="chip">Not assembled</span></span>
+          <span class="st parked"><span class="chip q">Parked</span></span>
+          <span class="st moving"><span class="chip g">Moving · 6.2 blocks/s</span></span>
+        </div>
+        <div class="grow" style="display:flex;gap:10px">
+          <div class="box grow" style="padding:8px 10px;display:flex;flex-direction:column;gap:5px">
+            <div class="lbl">Allowance · Tier I</div>
+            <div style="display:flex;align-items:baseline;gap:6px"><span style="font:600 22px Oswald;line-height:1">143</span><span class="m">of 200 blocks</span></div>
+            <div class="bar"><i style="width:71%"></i></div>
+            <div class="r sm">Left out: bedrock 1, Anti Totem Block 1</div>
+            <div class="sm m">The outline in the world shows every block the core takes.</div>
+          </div>
+          <div class="box" style="width:170px;padding:8px 10px;display:flex;flex-direction:column;gap:5px">
+            <div class="lbl">Aboard</div>
+            <div class="sm">1 Shatter Totem <span class="g">· slowed while aboard</span></div>
+            <div class="sm">6 chests · 2 machines</div>
+            <div class="sm m">Owner: Mrgregles</div>
+            <div class="sm m">Helm: open to anyone</div>
+          </div>
+        </div>
+        <div class="keys">
+          <span class="st idle"><span class="key q">Assemble</span></span>
+          <span class="st parked"><span class="key">Release</span></span>
+          <span class="st moving"><span class="key lock">Release</span><span class="hint">stop first</span></span>
+          <span class="gap"></span>
+          <span class="key ghost">Show outline</span>
+        </div>
+      </div>
+      <div class="scr">
+        <div class="hd"><span class="ttl">Mobile core</span><span class="tabs"><span class="tab">Core</span><span class="tab">Blocks</span><span class="tab on">Upgrade</span><span class="tab off">Helm</span><span class="tab off">Plan</span></span></div>
+        <div class="lbl">The tier ladder · prices are samples until the config is set</div>
+        <div class="grow box ladder" style="display:flex;flex-direction:column">
+          <div class="row cur"><span class="pips"><i class="on"></i><i></i><i></i><i></i><i></i></span><span class="b">Tier I</span><span class="m">200 blocks</span><span class="n qq">this core</span></div>
+          <div class="row"><span class="pips"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span><span class="b">Tier II</span><span class="m">500 blocks</span><span class="n g">6 Gold</span></div>
+          <div class="row"><span class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span><span class="b">Tier III</span><span class="m">1,200 blocks</span><span class="n g">3 Diamond</span></div>
+          <div class="row"><span class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span><span class="b">Tier IV</span><span class="m">2,500 blocks</span><span class="n g">2 Netherite</span></div>
+          <div class="row"><span class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span><span class="b">Tier V</span><span class="m">5,000 blocks</span><span class="n g">1 Illyrium</span></div>
+        </div>
+        <div class="sm m">You carry 9 Gold and 2 Diamond Shatter Coins.</div>
+        <div class="keys"><span class="key g">Buy Tier II · 6 Gold</span><span class="hint">a second click within three seconds confirms</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Decisions for this set (defaults first)</h2>
+  <ol>
+    <li><b>The screen layout.</b> Default: Layout C, tabs, because the helm lock and flight plans slot in as tabs later. Or Layout B, the ledger, with its full block list always in view. Or Layout A, the gauge, the simplest.</li>
+    <li><b>The outline in the world.</b> Default: while the screen is open, the blocks the core will take are outlined in teal and the refused ones in red, drawn like BSP-Core's zone boxes. Or no outline; the list on the screen is enough.</li>
+    <li><b>Naming.</b> Default: a construct has a name the owner types on this screen, shown in admin lists and on the helm later; new cores start as "Construct" followed by a number. Or no names, constructs are known by their owner and position.</li>
+    <li><b>Release.</b> Default: RELEASE puts the blocks back into the world at the nearest 90 degrees, only while parked; a second click within three seconds confirms. Or release is allowed while moving, dropping the construct where it is.</li>
+  </ol>
+  <p class="note">Part 1 of this set, the block, is core_block_concepts.html.</p>
+</section>
+</div>
+<script>
+document.querySelectorAll('.tb[data-st]').forEach(b => b.addEventListener('click', () => {
+  document.body.dataset.st = b.dataset.st;
+  document.querySelectorAll('.tb[data-st]').forEach(x => x.classList.toggle('on', x === b));
+}));
+</script>
+</body>
+</html>

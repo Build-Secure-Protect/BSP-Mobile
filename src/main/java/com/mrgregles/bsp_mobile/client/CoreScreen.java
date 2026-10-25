@@ -1,0 +1,405 @@
+package com.mrgregles.bsp_mobile.client;
+
+import com.mrgregles.bsp_mobile.construct.ConstructState;
+import com.mrgregles.bsp_mobile.construct.Gather;
+import com.mrgregles.bsp_mobile.construct.MobileCoreBlockEntity;
+import com.mrgregles.bsp_mobile.construct.MobileCoreItem;
+import com.mrgregles.bsp_mobile.network.CoreActionPacket;
+import com.mrgregles.bsp_mobile.network.CoreViewPacket;
+import com.mrgregles.bsp_mobile.network.MobileNetwork;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.block.Block;
+import net.minecraftforge.registries.ForgeRegistries;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * The Mobile Core's screen (D16, R4): a teal panel of 320 x 200 with the tabs CORE, BLOCKS and UPGRADE (HELM and PLAN
+ * closed until their tasks), drawn as the confirmed page {@code tools/preview/core_refined.html}. CORE: the name box,
+ * the state, the allowance and tier, what was left out, the Aboard box, ASSEMBLE or RELEASE (release needs a second
+ * click within three seconds) and SHOW OUTLINE. BLOCKS: the ledger of kinds with counts, refused kinds first in red.
+ * UPGRADE: the tier ladder (buying comes with the next task). The server decides; this screen only shows and asks.
+ */
+public class CoreScreen extends Screen {
+    static final int W = 320, H = 200;
+    private static final int PAD = 8, TAB_W = 40, TAB_H = 13, KEY_H = 14, ROW_H = 12;
+    private static final float SMALL = 0.75f, TINY = 0.65f;
+    private static final long SURE_MS = 3000;
+    private static final int REFRESH_TICKS = 40, SAVE_DELAY_TICKS = 20;
+    private static final int CORE = 0, BLOCKS = 1, UPGRADE = 2;
+
+    private CoreViewPacket view;
+    private int tab = CORE;
+    private boolean outlineOn = true;
+    private long sureUntil;
+    private int refreshTicks = REFRESH_TICKS;
+    private int listScroll;
+    private final List<Ui.Hit> hits = new ArrayList<>();
+    @Nullable
+    private EditBox nameBox;
+    private String typed = "";
+    private boolean dirty;
+    private int dirtyTicks;
+    private String note = "";
+    private long noteUntil;
+
+    public CoreScreen(CoreViewPacket view) {
+        super(Component.literal(Tr.t("core.title")));
+        this.view = view;
+        this.typed = view.name();
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
+    boolean outlineOn() {
+        return outlineOn;
+    }
+
+    private int left() {
+        return (width - W) / 2;
+    }
+
+    private int top() {
+        return (height - H) / 2;
+    }
+
+    /** A fresh view from the server. */
+    void accept(CoreViewPacket next) {
+        view = next;
+        if (!dirty && nameBox != null && !nameBox.isFocused() && !nameBox.getValue().equals(next.name())) {
+            nameBox.setValue(next.name());
+            typed = next.name();
+        }
+        if (!next.note().isEmpty()) {
+            note = next.note();
+            noteUntil = System.currentTimeMillis() + SURE_MS;
+        }
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        nameBox = new EditBox(font, left() + PAD + 32, top() + 22, 120, 12, Component.literal(Tr.t("name")));
+        nameBox.setMaxLength(MobileCoreBlockEntity.NAME_MAX);
+        nameBox.setBordered(false);
+        nameBox.setTextColor(Ui.TEXT);
+        nameBox.setValue(typed);
+        nameBox.setResponder(s -> {
+            if (!s.equals(typed)) {
+                typed = s;
+                dirty = true;
+                dirtyTicks = SAVE_DELAY_TICKS;
+            }
+        });
+        nameBox.visible = tab == CORE;
+        addRenderableWidget(nameBox);
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (dirty && --dirtyTicks <= 0) {
+            dirty = false;
+            send(CoreActionPacket.Action.RENAME, typed);
+        }
+        if (--refreshTicks <= 0) {
+            refreshTicks = REFRESH_TICKS;
+            send(CoreActionPacket.Action.REFRESH, "");
+        }
+    }
+
+    private void send(CoreActionPacket.Action action, String text) {
+        MobileNetwork.CHANNEL.sendToServer(new CoreActionPacket(view.pos(), action, text));
+    }
+
+    @Override
+    public void onClose() {
+        if (dirty) {
+            dirty = false;
+            send(CoreActionPacket.Action.RENAME, typed);
+        }
+        ClientCore.clearOutline();
+        super.onClose();
+    }
+
+    // ------------------------------------------------------------------ drawing
+
+    @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        renderBackground(g);
+        hits.clear();
+        int x = left(), y = top();
+        g.fill(x, y, x + W, y + H, Ui.PANEL);
+        Ui.frame(g, x - 1, y - 1, W + 2, H + 2, Ui.TEAL);
+        // the header: title and tabs
+        Ui.text(g, font, Tr.t("core.title").toUpperCase(Locale.ROOT), x + PAD, y + 6, Ui.TEAL, 1f);
+        String[] tabs = {Tr.t("tab.core"), Tr.t("tab.blocks"), Tr.t("tab.upgrade"), Tr.t("tab.helm"), Tr.t("tab.plan")};
+        int tx = x + W - PAD - tabs.length * TAB_W - (tabs.length - 1) * 3;
+        for (int i = 0; i < tabs.length; i++) {
+            boolean closed = i > UPGRADE, on = i == tab;
+            int bx = tx + i * (TAB_W + 3);
+            g.fill(bx, y + 5, bx + TAB_W, y + 5 + TAB_H, on ? Ui.TEAL : Ui.DIM);
+            String s = Ui.fit(font, tabs[i].toUpperCase(Locale.ROOT), TAB_W - 4, TINY);
+            int tw = Ui.width(font, s, TINY);
+            Ui.text(g, font, s, bx + (TAB_W - tw) / 2, y + 9, on ? Ui.INK : closed ? 0xFF5A6270 : Ui.MUTED, TINY);
+            if (!closed) {
+                int which = i;
+                hits.add(new Ui.Hit(bx, y + 5, TAB_W, TAB_H, () -> openTab(which)));
+            }
+        }
+        if (nameBox != null) {
+            nameBox.visible = tab == CORE;
+        }
+        switch (tab) {
+            case CORE -> drawCore(g, x, y);
+            case BLOCKS -> drawBlocks(g, x, y);
+            default -> drawUpgrade(g, x, y);
+        }
+        super.render(g, mouseX, mouseY, partialTick);
+    }
+
+    private void openTab(int which) {
+        tab = which;
+        listScroll = 0;
+    }
+
+    private ConstructState state() {
+        return ConstructState.values()[Mth.clamp(view.state(), 0, ConstructState.values().length - 1)];
+    }
+
+    private void drawCore(GuiGraphics g, int x, int y) {
+        ConstructState state = state();
+        // the name row and the state chip
+        Ui.text(g, font, Tr.t("name").toUpperCase(Locale.ROOT), x + PAD, y + 24, Ui.MUTED, TINY);
+        Ui.inset(g, x + PAD + 30, y + 20, 124, 15);
+        String chip = switch (state) {
+            case NOT_ASSEMBLED -> Tr.t("state.not_assembled");
+            case PARKED -> Tr.t("state.parked");
+            case MOVING -> Tr.t("state.moving", String.format(Locale.ROOT, "%.1f", view.speed()));
+        };
+        int chipColour = switch (state) {
+            case NOT_ASSEMBLED -> Ui.MUTED;
+            case PARKED -> Ui.TEAL;
+            case MOVING -> Ui.GOLD;
+        };
+        String chipText = Ui.fit(font, chip, 130, SMALL);
+        int cw = Ui.width(font, chipText, SMALL) + 8;
+        Ui.frame(g, x + W - PAD - cw, y + 21, cw, 13, chipColour);
+        Ui.text(g, font, chipText, x + W - PAD - cw + 4, y + 24, chipColour, SMALL);
+        // the allowance box
+        int bx = x + PAD, by = y + 40, bw = 194, bh = 108;
+        Ui.inset(g, bx, by, bw, bh);
+        Ui.text(g, font, Tr.t("allowance", MobileCoreItem.roman(view.tier())).toUpperCase(Locale.ROOT), bx + 6, by + 6, Ui.MUTED, TINY);
+        String big = Integer.toString(view.count());
+        Ui.text(g, font, big, bx + 6, by + 15, view.tooMany() ? Ui.BAD : Ui.TEXT, 1.6f);
+        Ui.text(g, font, Ui.fit(font, Tr.t("of_blocks", view.allowance()), bw - 12 - Ui.width(font, big, 1.6f) - 4, SMALL),
+                bx + 6 + Ui.width(font, big, 1.6f) + 4, by + 21, Ui.MUTED, SMALL);
+        int barW = bw - 12;
+        g.fill(bx + 6, by + 34, bx + 6 + barW, by + 39, Ui.DIM);
+        float frac = view.allowance() == 0 ? 0 : Math.min(1f, view.count() / (float) view.allowance());
+        g.fill(bx + 6, by + 34, bx + 6 + Math.round(barW * frac), by + 39, view.tooMany() ? Ui.BAD : Ui.TEAL);
+        int ly = by + 45;
+        if (view.tooMany()) {
+            for (String line : Ui.wrap(font, Tr.t("too_many", view.allowance()), bw - 12, SMALL)) {
+                Ui.text(g, font, line, bx + 6, ly, Ui.BAD, SMALL);
+                ly += 8;
+            }
+        } else if (!view.refused().isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (CoreViewPacket.Refused r : view.refused()) {
+                if (sb.length() > 0) {
+                    sb.append(", ");
+                }
+                sb.append(blockName(r.block())).append(' ').append(r.count());
+            }
+            for (String line : Ui.wrap(font, Tr.t("left_out", sb), bw - 12, SMALL)) {
+                Ui.text(g, font, line, bx + 6, ly, Ui.BAD, SMALL);
+                ly += 8;
+            }
+        } else {
+            Ui.text(g, font, Tr.t("left_out_none"), bx + 6, ly, Ui.MUTED, SMALL);
+            ly += 8;
+        }
+        String noteKey = switch (state) {
+            case NOT_ASSEMBLED -> "note.idle";
+            case PARKED -> "note.parked";
+            case MOVING -> "note.moving";
+        };
+        for (String line : Ui.wrap(font, Tr.t(noteKey), bw - 12, TINY)) {
+            Ui.text(g, font, line, bx + 6, ly + 2, Ui.MUTED, TINY);
+            ly += 7;
+        }
+        // the Aboard box
+        int ax = bx + bw + 6, aw = W - PAD - (ax - x);
+        Ui.inset(g, ax, by, aw, bh);
+        Ui.text(g, font, Tr.t("aboard").toUpperCase(Locale.ROOT), ax + 6, by + 6, Ui.MUTED, TINY);
+        int ay = by + 15;
+        for (String s : new String[]{Tr.t("aboard.totems", view.totems()), Tr.t("aboard.chests", view.chests(), view.machines()),
+                Tr.t("owner", view.ownerName().isEmpty() ? "?" : view.ownerName()), Tr.t("helm.open")}) {
+            Ui.text(g, font, Ui.fit(font, s, aw - 12, SMALL), ax + 6, ay, ay == by + 15 || ay == by + 24 ? Ui.TEXT : Ui.MUTED, SMALL);
+            ay += 9;
+        }
+        // the keys
+        int ky = y + H - PAD - KEY_H;
+        int kx = x + PAD;
+        boolean sure = System.currentTimeMillis() < sureUntil;
+        switch (state) {
+            case NOT_ASSEMBLED -> {
+                Ui.key(g, font, Tr.t("key.assemble"), kx, ky, 64, KEY_H, Ui.TEAL, Ui.INK, SMALL);
+                hits.add(new Ui.Hit(kx, ky, 64, KEY_H, () -> send(CoreActionPacket.Action.ASSEMBLE, "")));
+            }
+            case PARKED -> {
+                if (sure) {
+                    Ui.key(g, font, Tr.t("key.sure"), kx, ky, 80, KEY_H, Ui.SURE_BG, Ui.SURE_FG, SMALL);
+                    Ui.frame(g, kx, ky, 80, KEY_H, Ui.SURE_LINE);
+                    hits.add(new Ui.Hit(kx, ky, 80, KEY_H, () -> {
+                        sureUntil = 0;
+                        send(CoreActionPacket.Action.RELEASE, "");
+                    }));
+                } else {
+                    Ui.key(g, font, Tr.t("key.release"), kx, ky, 64, KEY_H, Ui.DIM, Ui.TEXT, SMALL);
+                    hits.add(new Ui.Hit(kx, ky, 64, KEY_H, () -> sureUntil = System.currentTimeMillis() + SURE_MS));
+                }
+            }
+            case MOVING -> {
+                Ui.key(g, font, Tr.t("key.release"), kx, ky, 64, KEY_H, Ui.DIM, 0xFF5A6270, SMALL);
+                Ui.text(g, font, Tr.t("stop_first"), kx + 68, ky + 4, Ui.MUTED, TINY);
+            }
+        }
+        int ox = kx + (sure ? 80 : 64) + 14 + (state == ConstructState.MOVING ? 40 : 0);
+        Ui.ghostKey(g, font, Tr.t("key.outline"), ox, ky, 72, KEY_H, outlineOn ? Ui.TEAL : Ui.MUTED, SMALL);
+        hits.add(new Ui.Hit(ox, ky, 72, KEY_H, () -> outlineOn = !outlineOn));
+        // the note from the server's last answer
+        if (System.currentTimeMillis() < noteUntil && Tr.has("note." + note)) {
+            Ui.text(g, font, Ui.fit(font, Tr.t("note." + note), W - 2 * PAD, TINY), x + PAD, ky - 9, note.startsWith("fail") ? Ui.BAD : Ui.OK, TINY);
+        }
+    }
+
+    private void drawBlocks(GuiGraphics g, int x, int y) {
+        Ui.text(g, font, Ui.fit(font, Tr.t("blocks.header", view.count(), view.allowance(), view.kinds().size()).toUpperCase(Locale.ROOT), 220, TINY),
+                x + PAD, y + 24, Ui.MUTED, TINY);
+        int refusedCount = view.refused().stream().mapToInt(CoreViewPacket.Refused::count).sum();
+        if (refusedCount > 0) {
+            String s = Tr.t("blocks.left_out", refusedCount).toUpperCase(Locale.ROOT);
+            Ui.text(g, font, s, x + W - PAD - Ui.width(font, s, TINY), y + 24, Ui.BAD, TINY);
+        }
+        int lx = x + PAD, ly = y + 34, lw = W - 2 * PAD - 6, lh = H - 34 - PAD - 22;
+        Ui.inset(g, lx, ly, lw, lh);
+        List<String[]> rows = new ArrayList<>();
+        for (CoreViewPacket.Refused r : view.refused()) {
+            rows.add(new String[]{blockName(r.block()) + " · " + reason(r.reason()), Integer.toString(r.count()), "bad"});
+        }
+        for (CoreViewPacket.Kind k : view.kinds()) {
+            rows.add(new String[]{blockName(k.block()), Integer.toString(k.count()), ""});
+        }
+        int visible = lh / ROW_H;
+        listScroll = Mth.clamp(listScroll, 0, Math.max(0, rows.size() - visible));
+        Ui.scissor(g, lx, ly, lx + lw, ly + lh);
+        for (int i = listScroll; i < Math.min(rows.size(), listScroll + visible); i++) {
+            int ry = ly + (i - listScroll) * ROW_H;
+            if (i > listScroll) {
+                g.fill(lx + 1, ry, lx + lw - 1, ry + 1, Ui.ROW_LINE);
+            }
+            boolean bad = rows.get(i)[2].equals("bad");
+            Ui.text(g, font, Ui.fit(font, rows.get(i)[0], lw - 40, SMALL), lx + 6, ry + 3, bad ? Ui.SURE_FG : Ui.TEXT, SMALL);
+            String n = rows.get(i)[1];
+            Ui.text(g, font, n, lx + lw - 6 - Ui.width(font, n, SMALL), ry + 3, bad ? Ui.BAD : Ui.TEAL, SMALL);
+        }
+        g.disableScissor();
+        // the scroll bar
+        int sx = lx + lw + 2;
+        g.fill(sx, ly, sx + 4, ly + lh, Ui.DIM);
+        if (rows.size() > visible) {
+            int th = Math.max(8, lh * visible / rows.size());
+            int ty = ly + (lh - th) * listScroll / Math.max(1, rows.size() - visible);
+            g.fill(sx, ty, sx + 4, ty + th, Ui.MUTED);
+        }
+        int fy = ly + lh + 4;
+        for (String line : Ui.wrap(font, Tr.t("blocks.footer"), W - 2 * PAD, TINY)) {
+            Ui.text(g, font, line, x + PAD, fy, Ui.MUTED, TINY);
+            fy += 7;
+        }
+    }
+
+    private void drawUpgrade(GuiGraphics g, int x, int y) {
+        Ui.text(g, font, Tr.t("upgrade.header").toUpperCase(Locale.ROOT), x + PAD, y + 24, Ui.MUTED, TINY);
+        int lx = x + PAD, ly = y + 34, lw = W - 2 * PAD, rowH = 16;
+        int tiers = Math.max(1, view.tiers());
+        Ui.inset(g, lx, ly, lw, tiers * rowH + 2);
+        for (int t = 1; t <= tiers; t++) {
+            int ry = ly + 1 + (t - 1) * rowH;
+            boolean cur = t == view.tier();
+            if (cur) {
+                g.fill(lx + 1, ry, lx + lw - 1, ry + rowH, 0xFF132A28);
+                g.fill(lx + 1, ry, lx + 3, ry + rowH, Ui.TEAL);
+            } else if (t > 1) {
+                g.fill(lx + 1, ry, lx + lw - 1, ry + 1, Ui.ROW_LINE);
+            }
+            for (int p = 0; p < tiers; p++) {
+                g.fill(lx + 8 + p * 9, ry + 5, lx + 15 + p * 9, ry + 10, p < t ? Ui.TEAL : Ui.DIM);
+            }
+            Ui.text(g, font, Tr.t("upgrade.tier", MobileCoreItem.roman(t)), lx + 8 + tiers * 9 + 6, ry + 4, Ui.TEXT, SMALL);
+            String blocks = t == view.tier() ? Tr.t("upgrade.blocks", view.allowance()) : t == view.tier() + 1 ? Tr.t("upgrade.blocks", view.nextAllowance()) : "";
+            Ui.text(g, font, blocks, lx + 8 + tiers * 9 + 60, ry + 4, Ui.MUTED, SMALL);
+            if (cur) {
+                String s = Tr.t("upgrade.this");
+                Ui.text(g, font, s, lx + lw - 8 - Ui.width(font, s, SMALL), ry + 4, Ui.TEAL, SMALL);
+            }
+        }
+        int fy = ly + tiers * rowH + 10;
+        for (String line : Ui.wrap(font, Tr.t("upgrade.soon"), lw, SMALL)) {
+            Ui.text(g, font, line, lx, fy, Ui.MUTED, SMALL);
+            fy += 9;
+        }
+        int ky = y + H - PAD - KEY_H;
+        String key = view.tier() < tiers ? Tr.t("upgrade.key", MobileCoreItem.roman(view.tier() + 1)) : Tr.t("upgrade.top");
+        Ui.key(g, font, key, lx, ky, 100, KEY_H, Ui.DIM, 0xFF5A6270, SMALL);
+    }
+
+    private static String blockName(String id) {
+        ResourceLocation rl = ResourceLocation.tryParse(id);
+        Block block = rl == null ? null : ForgeRegistries.BLOCKS.getValue(rl);
+        return block == null ? id : block.getName().getString();
+    }
+
+    private static String reason(int ordinal) {
+        Gather.Reason[] all = Gather.Reason.values();
+        return Tr.t("reason." + all[Mth.clamp(ordinal, 0, all.length - 1)].name().toLowerCase(Locale.ROOT));
+    }
+
+    // ------------------------------------------------------------------ input
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        if (button == 0) {
+            for (Ui.Hit hit : hits) {
+                if (hit.contains(mx, my)) {
+                    hit.action().run();
+                    return true;
+                }
+            }
+        }
+        return super.mouseClicked(mx, my, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mx, double my, double delta) {
+        if (tab == BLOCKS) {
+            listScroll -= (int) Math.signum(delta);
+            return true;
+        }
+        return super.mouseScrolled(mx, my, delta);
+    }
+}

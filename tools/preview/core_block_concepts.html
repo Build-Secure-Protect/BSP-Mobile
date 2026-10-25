@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile Core Block Concepts</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Set A for BSP-Mobile, A1: the Mobile Core block, looks A B C, drawn with three.js r128. Each view shows the same block
+   in its three states, left to right: not assembled (dim), assembled and parked (teal), moving (gold). Static renders. */
+:root{ --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --fg:#e8eaf0; --muted:#9aa3b5; --acc:#19d3b0; --board:#0b0d11;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; color-scheme:dark; }
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; } }
+:root[data-theme="light"]{ --bg:#f3f1ea; --panel:#fff; --line:#d9d4c7; --fg:#1a1b20; --muted:#5f6472; --acc:#0c8f78; --board:#e7e3d8; color-scheme:light; }
+body{ background:var(--bg); color:var(--fg); font-family:var(--body); margin:0; font-size:14px; line-height:1.5; }
+.wrap{ max-width:1100px; margin:0 auto; padding:28px 16px 56px; display:flex; flex-direction:column; gap:28px; }
+h1{ font-size:clamp(22px,3.4vw,30px); margin:0; } h2{ font-size:18px; margin:0; color:var(--acc); } h3{ font-size:15px; margin:0; }
+.lede{ color:var(--muted); margin:0; max-width:78ch; }
+section{ display:flex; flex-direction:column; gap:14px; }
+.card{ background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.card p{ margin:0; font-size:13px; color:var(--muted); max-width:84ch; }
+.view3d{ width:100%; max-width:900px; aspect-ratio:3/1; background:radial-gradient(ellipse at 50% 80%,#262b36 0%,#0b0d11 70%); border-radius:4px; display:block; }
+.states{ display:flex; max-width:900px; justify-content:space-around; font-size:12px; color:var(--muted); }
+ol{ margin:0; padding-left:22px; } ol li{ margin-bottom:8px; max-width:84ch; } ol b{ color:var(--fg); }
+.note{ font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>The Mobile Core: three block looks</h1>
+  <p class="lede">Set A of the mock-ups, part 1. The Mobile Core is the one block a player crafts to make a base move (D3: it gathers every block touching the structure around it, up to its allowance). It has three states a player should read at a glance from across a base: <b>not assembled</b> (an ordinary block in the world), <b>assembled and parked</b> (the blocks round it are a construct, standing still) and <b>moving</b>. Each view shows the same look in those three states, left to right. Everything is drawn from shapes; the real block gets 16 x 16 textures from a generator script in the same colours. Pick one look, or name the parts to combine.</p>
+</header>
+
+<section>
+  <h2>A1. The block</h2>
+  <div class="card">
+    <h3>Look A: Keel Plate</h3>
+    <p>A dark hull-plate cube with riveted corners, a light band running round its middle, and a gold compass rose set into the top. The band is the state: dark grey when not assembled, teal when parked, gold when moving. Reads as a piece of a ship's hull; sits flat in a floor or wall without drawing the eye until it lights.</p>
+    <canvas class="view3d" id="lookA"></canvas>
+    <div class="states"><span>not assembled</span><span>parked</span><span>moving</span></div>
+  </div>
+  <div class="card">
+    <h3>Look B: Gyro Cage</h3>
+    <p>An iron cage with each face open on a violet glass heart, and a teal gyroscope ring tilted inside it. The heart is the state: dim when not assembled, a steady teal ring when parked, the ring lit gold when moving. The most machine-like of the three; visible from every side, so it suits a core placed in the open on a deck.</p>
+    <canvas class="view3d" id="lookB"></canvas>
+    <div class="states"><span>not assembled</span><span>parked</span><span>moving</span></div>
+  </div>
+  <div class="card">
+    <h3>Look C: Anchor Drum</h3>
+    <p>A squat drum like a capstan on a square base plate, with chain links round the drum, hazard stripes on the base and one round lens on the front. The lens is the state: dark, teal, gold. Reads as deck machinery, something a vehicle would have; the stripes warn that this block is the thing that matters, as the totem's markings do.</p>
+    <canvas class="view3d" id="lookC"></canvas>
+    <div class="states"><span>not assembled</span><span>parked</span><span>moving</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Decisions for this set (defaults first)</h2>
+  <ol>
+    <li><b>The block look.</b> Default: Look A, Keel Plate. Or Look B, Gyro Cage. Or Look C, Anchor Drum. Or parts of two named together.</li>
+    <li><b>The state colours.</b> Default: dark grey when not assembled, teal when parked, gold when moving, matching the palette's use of teal for players' things and gold for value. Or a single teal light that only shows when assembled, with no moving state on the block itself.</li>
+    <li><b>Its place in a build.</b> Default: a full cube that can sit anywhere inside, on or under the structure (the gather starts from it in every direction). Or a block that must have open air on one face so its screen can be opened, like a chest.</li>
+  </ol>
+  <p class="note">Part 2 of this set, the core's screen, is core_screen_concepts.html.</p>
+</section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  const PAL = { steel:0x2a2f3a, steelLight:0x3b4250, iron:0x5b6270, dark:0x0c0e12, teal:0x19d3b0, gold:0xffd23a, violet:0xb58cff, dim:0x4a5160, stripe:0x1a1d24 };
+  function mat(c, o){ return new THREE.MeshStandardMaterial(Object.assign({ color:c, roughness:.75, metalness:.25 }, o||{})); }
+  function glow(c, strength){ return new THREE.MeshStandardMaterial({ color:c, emissive:c, emissiveIntensity:strength, roughness:.4, metalness:0 }); }
+  function box(w,h,d,m,x,y,z){ const g = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m); g.position.set(x||0,y||0,z||0); return g; }
+  function stateColour(state){ return state===0 ? PAL.dim : state===1 ? PAL.teal : PAL.gold; }
+  function stateGlow(state){ return state===0 ? 0.05 : state===1 ? 0.9 : 1.1; }
+
+  // Look A: Keel Plate
+  function keelPlate(state){
+    const g = new THREE.Group();
+    g.add(box(1,1,1, mat(PAL.steel)));
+    // a lighter plate on each side face with a dark seam
+    [[0,0,0.46],[0,0,-0.46],[0.46,0,0],[-0.46,0,0]].forEach(([x,y,z],i)=>{
+      const p = box(i<2?0.84:0.1, 0.84, i<2?0.1:0.84, mat(PAL.steelLight), x,y,z); g.add(p);
+    });
+    // rivets at the corners of every side plate
+    const r = mat(PAL.iron,{metalness:.6, roughness:.4});
+    for (const sx of [-0.36,0.36]) for (const sy of [-0.36,0.36]) { g.add(box(.06,.06,.06,r, sx,sy,.52)); g.add(box(.06,.06,.06,r, sx,sy,-.52)); g.add(box(.06,.06,.06,r, .52,sy,sx)); g.add(box(.06,.06,.06,r, -.52,sy,sx)); }
+    // the band round the middle
+    const band = glow(stateColour(state), stateGlow(state));
+    g.add(box(1.04,0.12,0.06,band, 0,0,0.52)); g.add(box(1.04,0.12,0.06,band, 0,0,-0.52));
+    g.add(box(0.06,0.12,1.04,band, 0.52,0,0)); g.add(box(0.06,0.12,1.04,band, -0.52,0,0));
+    // the compass rose on top: a gold cross and a smaller diagonal cross
+    const goldM = mat(PAL.gold,{metalness:.7, roughness:.35});
+    g.add(box(0.7,0.03,0.1,goldM, 0,0.515,0)); g.add(box(0.1,0.03,0.7,goldM, 0,0.515,0));
+    const d1 = box(0.45,0.03,0.07,goldM, 0,0.515,0); d1.rotation.y = Math.PI/4; g.add(d1);
+    const d2 = box(0.45,0.03,0.07,goldM, 0,0.515,0); d2.rotation.y = -Math.PI/4; g.add(d2);
+    g.add(box(0.16,0.04,0.16, glow(stateColour(state), stateGlow(state)), 0,0.52,0));
+    return g;
+  }
+
+  // Look B: Gyro Cage
+  function gyroCage(state){
+    const g = new THREE.Group();
+    const frame = mat(PAL.iron,{metalness:.5, roughness:.5});
+    // twelve edges of the cage
+    const e = 0.14;
+    for (const a of [-0.43,0.43]) for (const b of [-0.43,0.43]) { g.add(box(1,e,e,frame, 0,a,b)); g.add(box(e,1,e,frame, a,0,b)); g.add(box(e,e,1,frame, a,b,0)); }
+    // the violet glass heart
+    g.add(box(0.72,0.72,0.72, new THREE.MeshStandardMaterial({ color:PAL.violet, emissive:PAL.violet, emissiveIntensity: state===0?0.08:0.35, transparent:true, opacity:0.55, roughness:.2 })));
+    // the gyro ring, tilted
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.045, 10, 36), glow(stateColour(state), stateGlow(state)));
+    ring.rotation.x = Math.PI/3; ring.rotation.y = Math.PI/5; g.add(ring);
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.035, 10, 36), mat(PAL.iron,{metalness:.6}));
+    ring2.rotation.x = -Math.PI/4; ring2.rotation.z = Math.PI/3; g.add(ring2);
+    // a small plate on the bottom so it sits on a floor
+    g.add(box(0.9,0.06,0.9, mat(PAL.steel), 0,-0.47,0));
+    return g;
+  }
+
+  // Look C: Anchor Drum
+  function anchorDrum(state){
+    const g = new THREE.Group();
+    // base plate with hazard stripes along the front edge
+    g.add(box(1,0.22,1, mat(PAL.steel), 0,-0.39,0));
+    for (let i=0;i<6;i++){ g.add(box(0.14,0.23,0.04, mat(i%2? PAL.gold : PAL.stripe), -0.42+i*0.168, -0.39, 0.5)); g.add(box(0.14,0.23,0.04, mat(i%2? PAL.gold : PAL.stripe), -0.42+i*0.168, -0.39, -0.5)); }
+    // the drum
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.36,0.64,24), mat(PAL.steelLight,{metalness:.4}));
+    drum.position.y = 0.04; g.add(drum);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.08,24), mat(PAL.iron,{metalness:.6})); cap.position.y = 0.4; g.add(cap);
+    // chain links round the drum
+    const linkM = mat(PAL.iron,{metalness:.7, roughness:.35});
+    for (let i=0;i<10;i++){ const a = i/10*Math.PI*2; const l = new THREE.Mesh(new THREE.TorusGeometry(0.07,0.02,8,16), linkM); l.position.set(Math.cos(a)*0.39, 0.1+ (i%2)*0.08, Math.sin(a)*0.39); l.rotation.y = -a; l.rotation.x = Math.PI/2*(i%2); g.add(l); }
+    // the lens on the front
+    const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.06,20), glow(stateColour(state), stateGlow(state)));
+    lens.rotation.x = Math.PI/2; lens.position.set(0,0.05,0.38); g.add(lens);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.15,0.025,8,24), mat(PAL.gold,{metalness:.7})); rim.position.set(0,0.05,0.4); g.add(rim);
+    return g;
+  }
+
+  function render(canvasId, build){
+    const canvas = document.getElementById(canvasId);
+    const w = canvas.clientWidth || 900, h = canvas.clientHeight || 300;
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2)); renderer.setSize(w, h, false);
+    const scene = new THREE.Scene();
+    const cam = new THREE.OrthographicCamera(-3.3, 3.3, 3.3*h/w, -3.3*h/w, 0.1, 100);
+    cam.position.set(4, 3.2, 5); cam.lookAt(0, 0.1, 0);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(3,6,4); scene.add(sun);
+    const fill = new THREE.DirectionalLight(0x8899bb, 0.35); fill.position.set(-4,2,-3); scene.add(fill);
+    // a floor of plain blocks so the core is seen in a build
+    const floorM = mat(0x3a3f4b,{roughness:.9, metalness:0});
+    for (let x=-2;x<=2;x++) for (let z=-1;z<=1;z++) { const f = box(0.98,0.98,0.98,floorM, x*1.08, -1.02, z*1.08); scene.add(f); }
+    [0,1,2].forEach((state,i)=>{ const b = build(state); b.position.set((i-1)*2.1, 0, 0); b.rotation.y = -Math.PI/8; scene.add(b); });
+    renderer.render(scene, cam);
+  }
+  render('lookA', keelPlate); render('lookB', gyroCage); render('lookC', anchorDrum);
+})();
+</script>
+</body>
+</html>
