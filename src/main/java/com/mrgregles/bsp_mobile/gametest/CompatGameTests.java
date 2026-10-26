@@ -27,11 +27,12 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
- * Canary beside the BSP build of Valkyrien Skies. The test server runs Canary at its defaults, the pairing that stopped
- * the pack on world load with upstream Valkyrien Skies 2.4.11 (Canary replaces {@code PoiManager.getInRange}; the
- * upstream mixin wrapped a call inside it and was refused). The BSP build overwrites that method above Canary's
- * priority instead. So: the server is up at all; both mods' patches are on the class; the ordinary search still works;
- * and a bed aboard a construct is found from a world position, the feature the patch keeps.
+ * Canary beside Valkyrien Skies. Canary's point-of-interest module replaces {@code PoiManager.getInRange} outright,
+ * which refuses the Valkyrien Skies mixin inside that method and stops the game on world load. This jar ships
+ * {@code canary.overrides.properties} at its root with {@code mixin.ai.poi=false}; Canary reads it after the user's
+ * config and a mod turning an option off wins. The test server runs Canary with no user config, so: the server is up at
+ * all; Canary's patch is absent from the class and Valkyrien Skies' present; the ordinary search still works; and a bed
+ * aboard a construct is found from a world position, the feature the override keeps.
  */
 @GameTestHolder(BSPMobile.MODID)
 @PrefixGameTestTemplate(false)
@@ -42,29 +43,25 @@ public class CompatGameTests {
     private static final Predicate<Holder<PoiType>> HOMES = t -> t.is(PoiTypes.HOME);
 
     @GameTest(template = EMPTY)
-    public void canary_and_the_bsp_build_of_valkyrien_skies_both_patch_the_poi_manager(GameTestHelper h) {
+    public void the_override_in_this_jar_turns_canarys_poi_module_off_and_valkyrien_skies_patches_the_poi_manager(GameTestHelper h) {
         if (!ModList.get().isLoaded("canary")) {
             h.fail("canary is not loaded in the dev run");
             return;
         }
         Set<String> interfaces = Arrays.stream(PoiManager.class.getInterfaces()).map(Class::getName).collect(Collectors.toSet());
-        if (!interfaces.contains(CANARY_POI)) {
-            h.fail("Canary's POI mixin is not on PoiManager (is mixin.ai.poi off?): " + interfaces);
+        if (interfaces.contains(CANARY_POI)) {
+            h.fail("Canary's POI mixin is on PoiManager: the canary.overrides.properties at the root of this jar was not applied: " + interfaces);
             return;
         }
         if (!interfaces.contains(VS_OF_LEVEL)) {
             h.fail("Valkyrien Skies' POI mixin is not on PoiManager: " + interfaces);
             return;
         }
-        if (!ValkyrienSkiesBridge.version().startsWith("2.4.11.")) {
-            h.fail("the dev run does not load the BSP build of Valkyrien Skies: " + ValkyrienSkiesBridge.version());
-            return;
-        }
         h.succeed();
     }
 
     @GameTest(template = EMPTY)
-    public void a_bed_is_found_by_the_point_of_interest_search_with_canary_at_its_defaults(GameTestHelper h) {
+    public void a_bed_is_found_by_the_point_of_interest_search_with_canary_loaded(GameTestHelper h) {
         BlockPos foot = new BlockPos(11, 2, 11);
         BlockPos head = foot.north();
         h.setBlock(foot, Blocks.RED_BED.defaultBlockState().setValue(BedBlock.PART, BedPart.FOOT));
@@ -78,7 +75,7 @@ public class CompatGameTests {
     }
 
     @GameTest(template = EMPTY, timeoutTicks = 1400)
-    public void a_bed_aboard_a_construct_is_found_from_the_world_with_canary_at_its_defaults(GameTestHelper h) {
+    public void a_bed_aboard_a_construct_is_found_from_the_world_with_canary_loaded(GameTestHelper h) {
         ServerLevel level = h.getLevel();
         Set<BlockPos> blocks = new HashSet<>();
         for (int x = 10; x <= 11; x++) {

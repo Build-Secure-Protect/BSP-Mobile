@@ -138,14 +138,15 @@ In game:
 5. Take a helm while it flies: the plan stops and you drive. Drive it into a closed region under the plan: it stops.
 6. A construct without a helm: GO greyed ("No helm aboard." when forced). Break the core's construct apart and re-assemble: the plan is still there.
 
-## 2026-10-25: MB-11, Canary beside the BSP build of Valkyrien Skies
+## 2026-10-26: MB-12, Canary's point-of-interest module turned off from the jar
 
-Headless: 40 required GameTests pass, the dev run carrying Canary 0.3.3 at its defaults and the BSP build of Valkyrien Skies 2.4.11.1 (`../BSP-Valkyrien Skies`). The three new ones (`gametest/CompatGameTests`): both Canary's and Valkyrien Skies' patches are on `PoiManager` and the loaded Valkyrien Skies is the BSP build; a bed's point of interest is found by the ordinary search; a bed assembled into a construct is found from a world position beside it (the shipyard record projects to within 2.5 blocks of where the bed stood). With upstream 2.4.11 in place of the BSP build the server does not reach the tests: it stops on world load. **Nothing of this has run in a client.**
+Replaces MB-11 (the BSP build of Valkyrien Skies, parked). Headless: 40 required GameTests pass, the dev run carrying Canary 0.3.3 with no user config and upstream Valkyrien Skies 2.4.11. The three in `gametest/CompatGameTests`: Canary's point-of-interest patch is absent from `PoiManager` and Valkyrien Skies' present, so the `canary.overrides.properties` at the root of this jar was read and honoured; a bed's point of interest is found by the ordinary search; a bed assembled into a construct is found from a world position beside it (the shipyard record projects to within 2.5 blocks of where the bed stood). **Nothing of this has run in a client.**
 
-In game (the pack instance with the BSP build of Valkyrien Skies in `mods/` in place of `valkyrienskies-120-2.4.11.jar`):
-1. Delete `config/canary.properties` (or remove its `mixin.ai.poi=false` line) so Canary runs at its defaults. Launch, load a world: no crash, and the log has no `Mixin apply for mod (unknown) failed ... MixinPOIManager` line. The mod list shows Valkyrien Skies 2.4.11.1.
-2. In a village, villagers still claim beds and workstations and path to them at dusk (Canary's search is on; the game's village AI is unchanged).
-3. Build a small platform with a bed and a composter on it, put a Mobile Core in it and assemble it; lead a villager aboard (or let one wander on). At dusk the villager claims the bed aboard and sleeps in it; a farmer claims the composter. This is the Valkyrien Skies feature the patch keeps.
-4. Fly or drive the construct a few hundred blocks and park it: the villager keeps the bed and sleeps aboard where the construct stands.
-5. On a dedicated server with Canary: the same as 1 and 3; `/spark tps` shows no change against the stock build.
-6. Walk through a nether portal with the construct nearby: nothing crashes (Canary's portal search is on and still finds the vanilla POI manager's own methods).
+In game (the pack instance with upstream `valkyrienskies-120-2.4.11.jar` and this jar in `mods/`):
+1. Delete `config/canary.properties`. Launch, load a world: no crash, and the log has no `Mixin apply for mod (unknown) failed ... MixinPOIManager` line. Canary's log lines at startup name `bsp_mobile` as the mod overriding `mixin.ai.poi`, and the `config/canary.properties` it writes back shows that key as overridden.
+2. Put `mixin.ai.poi=true` into `config/canary.properties` and launch again: the override still wins (no crash, the same log lines). Delete the line afterwards.
+3. In a village, villagers still claim beds and workstations and path to them at dusk (the vanilla search, Canary's other optimisations on).
+4. Build a small platform with a bed and a composter on it, put a Mobile Core in it and assemble it; lead a villager aboard (or let one wander on). At dusk the villager claims the bed aboard and sleeps in it; a farmer claims the composter. This is the Valkyrien Skies feature the override keeps.
+5. Fly or drive the construct a few hundred blocks and park it: the villager keeps the bed and sleeps aboard where the construct stands.
+6. On a dedicated server with Canary: the same as 1 and 4.
+7. Walk through a nether portal with the construct nearby: nothing crashes.
